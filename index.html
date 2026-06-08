@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>MTG · GRID Active Workstreams</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
+<style>
+:root {
+  --bg:#f0f2f5; --surface:#fff; --border:#e2e8f0;
+  --text:#1a202c; --muted:#718096;
+  --accent:#9db800; --accent-light:#f4f9e0; --accent-hover:#7d9400;
+  --steel:#87abbe;
+  --high:#dc2626; --high-bg:#fef2f2; --high-border:#fecaca;
+  --med:#d97706;  --med-bg:#fffbeb;  --med-border:#fde68a;
+  --low:#16a34a;  --low-bg:#f0fdf4;  --low-border:#bbf7d0;
+  --none:#6b7280; --none-bg:#f9fafb; --none-border:#e5e7eb;
+  --s-active:#9db800; --s-hold:#6b7280; --s-blocked:#7c3aed; --s-complete:#059669;
+  --sidebar:#0d1e2d; --sidebar-active:#1a3045; --sidebar-text:#8ba3b8;
+  --radius:8px;
+  --shadow:0 1px 3px rgba(0,0,0,.1),0 1px 2px rgba(0,0,0,.06);
+  --shadow-md:0 4px 6px rgba(0,0,0,.07),0 2px 4px rgba(0,0,0,.06);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+#root{display:flex;min-height:100vh}
+
+/* Sidebar */
+.sidebar{width:226px;background:var(--sidebar);display:flex;flex-direction:column;flex-shrink:0}
+.sidebar-logo{padding:18px 16px 14px;border-bottom:1px solid #1a3045;display:flex;flex-direction:column;gap:8px}
+.logo-mark{display:flex;align-items:center;gap:9px}
+.logo-wordmark{font-size:12px;font-weight:700;color:#fff;letter-spacing:.6px}
+.logo-sub{font-size:10px;color:var(--sidebar-text);letter-spacing:.4px;text-transform:uppercase}
+.sidebar-nav{padding:12px 8px;flex:1}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:6px;cursor:pointer;color:var(--sidebar-text);font-size:13px;font-weight:500;transition:all .15s;margin-bottom:2px}
+.nav-item:hover{background:var(--sidebar-active);color:#fff}
+.nav-item.active{background:var(--accent);color:#fff}
+.nav-item svg{width:16px;height:16px;flex-shrink:0}
+.nav-badge{margin-left:auto;background:#ef4444;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;font-weight:600}
+.sidebar-foot{padding:14px 16px;border-top:1px solid #1a3045;font-size:11px;color:#4a6070}
+
+/* Main */
+.main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;height:52px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:12px}
+.topbar-title{font-size:16px;font-weight:600;flex-shrink:0}
+.topbar-actions{display:flex;align-items:center;gap:8px}
+.page{padding:20px;flex:1;overflow-y:auto}
+
+/* Card */
+.card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow)}
+.card-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.card-title{font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.card-body{padding:18px}
+
+/* Stats */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.stat-card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:14px 18px;box-shadow:var(--shadow)}
+.stat-label{font-size:11px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px}
+.stat-value{font-size:26px;font-weight:700}
+.stat-sub{font-size:11px;color:var(--muted);margin-top:2px}
+
+/* Filters */
+.filter-bar{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.search-box{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:7px 11px;flex:1;max-width:260px}
+.search-box input{border:none;outline:none;font-size:13px;color:var(--text);background:transparent;width:100%}
+.search-box svg{color:var(--muted);flex-shrink:0;width:14px;height:14px}
+select.fs{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:7px 11px;font-size:12px;color:var(--text);cursor:pointer;outline:none}
+select.fs:focus{border-color:var(--accent)}
+
+/* Table */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{background:#f8fafc;color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.4px;padding:9px 13px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+tbody tr{border-bottom:1px solid var(--border);cursor:pointer;transition:all .1s}
+tbody tr:hover{background:var(--accent-light)}
+tbody tr:last-child{border-bottom:none}
+tbody tr.dimmed{opacity:.28;filter:grayscale(.5)}
+td{padding:11px 13px;vertical-align:middle}
+.td-main{font-weight:600;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.td-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.td-muted{color:var(--muted);font-size:12px}
+.td-trunc{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Badges */
+.badge{display:inline-flex;align-items:center;border-radius:4px;padding:2px 7px;font-size:11px;font-weight:600;white-space:nowrap}
+.b-high    {background:var(--high-bg);  color:var(--high);  border:1px solid var(--high-border)}
+.b-medium  {background:var(--med-bg);   color:var(--med);   border:1px solid var(--med-border)}
+.b-low     {background:var(--low-bg);   color:var(--low);   border:1px solid var(--low-border)}
+.b-notyet  {background:var(--none-bg);  color:var(--none);  border:1px solid var(--none-border)}
+.b-pending {background:#fffbeb;color:#b45309;border:1px solid #fde68a}
+.b-active  {background:var(--accent-light);color:#5a6e00;border:1px solid #c8dc6a}
+.b-hold    {background:#f9fafb;color:var(--none);border:1px solid #e5e7eb}
+.b-blocked {background:#f5f3ff;color:var(--s-blocked);border:1px solid #ddd6fe}
+.b-complete{background:#f0fdf4;color:var(--s-complete);border:1px solid #bbf7d0}
+.b-accepted{background:#f0fdf4;color:var(--s-complete);border:1px solid #bbf7d0}
+.b-rejected{background:#fef2f2;color:var(--high);border:1px solid var(--high-border)}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border-radius:var(--radius);font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all .15s;white-space:nowrap}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-hover)}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border)}
+.btn-ghost:hover{background:var(--bg);color:var(--text)}
+.btn-ghost.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-accept{background:#f0fdf4;color:var(--s-complete);border:1px solid #bbf7d0}
+.btn-accept:hover{background:#dcfce7}
+.btn-reject{background:#fef2f2;color:var(--high);border:1px solid var(--high-border)}
+.btn-reject:hover{background:#fee2e2}
+.btn-hold  {background:#f9fafb;color:var(--none);border:1px solid #e5e7eb}
+.btn-hold:hover{background:#f3f4f6}
+.btn-sm{padding:4px 10px;font-size:12px}
+.btn svg{width:13px;height:13px}
+.view-toggle{display:flex;gap:3px;background:#f1f5f9;border-radius:6px;padding:3px}
+.vt-btn{padding:5px 11px;border-radius:4px;font-size:12px;font-weight:500;cursor:pointer;color:var(--muted);transition:all .15s;border:none;background:transparent}
+.vt-btn.active{background:#fff;color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+
+/* Drawer */
+.drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:100;display:flex;justify-content:flex-end}
+.drawer{width:560px;max-width:96vw;background:var(--surface);height:100vh;display:flex;flex-direction:column;box-shadow:-4px 0 24px rgba(0,0,0,.15)}
+.drawer-header{padding:16px 18px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-shrink:0}
+.drawer-title-input{font-size:15px;font-weight:700;color:var(--text);border:none;outline:none;background:transparent;width:100%;padding:2px 4px;border-radius:4px}
+.drawer-title-input:hover{background:#f8fafc}
+.drawer-title-input:focus{background:#f0fdf4;border:1px solid var(--accent);padding:1px 3px}
+.drawer-body{flex:1;overflow-y:auto;padding:18px}
+.drawer-footer{padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0}
+
+/* Field rows */
+.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+.field input,.field select,.field textarea{font-size:13px;color:var(--text);border:1px solid var(--border);border-radius:5px;padding:6px 9px;font-family:inherit;outline:none;background:var(--surface);transition:border-color .15s;width:100%}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent)}
+.field-inline{display:flex;align-items:center;gap:8px}
+.field-inline label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);white-space:nowrap;min-width:90px}
+.field-inline input,.field-inline select{flex:1;font-size:13px;color:var(--text);border:1px solid var(--border);border-radius:5px;padding:5px 8px;font-family:inherit;outline:none;background:var(--surface)}
+.field-inline input:focus,.field-inline select:focus{border-color:var(--accent)}
+
+/* Rationale box */
+.ai-box{background:var(--accent-light);border:1px solid #c8dc6a;border-radius:var(--radius);padding:10px 13px;margin-bottom:14px}
+.ai-box-lbl{font-size:10px;font-weight:700;color:#5a6e00;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
+
+/* Flags */
+.flag-box{background:#fffbeb;border:1px solid #fde68a;border-radius:var(--radius);padding:9px 13px;margin-bottom:14px}
+.flag-item{font-size:12px;color:#92400e;margin-bottom:2px}
+
+/* Deps */
+.deps-box{background:#f5f3ff;border:1px solid #ddd6fe;border-radius:var(--radius);padding:9px 13px;margin-bottom:14px}
+.deps-lbl{font-size:10px;font-weight:700;color:var(--s-blocked);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.dep-tag{display:inline-flex;align-items:center;gap:4px;background:#fff;border:1px solid #ddd6fe;border-radius:4px;padding:2px 8px;font-size:11px;color:var(--s-blocked);margin:2px;cursor:pointer}
+.dep-tag:hover{background:#fef2f2;border-color:var(--high-border);color:var(--high)}
+
+/* Notes log */
+.notes-log{display:flex;flex-direction:column;gap:0;margin-bottom:10px;max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);background:#fafafa}
+.note-entry{padding:9px 12px;border-bottom:1px solid var(--border);font-size:12px}
+.note-entry:last-child{border-bottom:none}
+.note-ts{font-size:10px;color:var(--muted);font-weight:600;margin-bottom:3px}
+.note-text{color:var(--text);line-height:1.5}
+.note-composer{display:flex;flex-direction:column;gap:6px}
+.note-composer textarea{font-size:13px;color:var(--text);border:1px solid var(--border);border-radius:5px;padding:7px 10px;font-family:inherit;outline:none;resize:vertical;min-height:60px;background:var(--surface)}
+.note-composer textarea:focus{border-color:var(--accent)}
+
+/* Section heading in drawer */
+.dsec{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:16px 0 8px}
+.dsec:first-child{margin-top:0}
+
+/* Kanban */
+.kanban-wrap{overflow-x:auto;padding-bottom:8px}
+.kanban-board{display:flex;gap:12px;min-width:max-content;align-items:flex-start}
+.kanban-col{width:240px;flex-shrink:0;border-radius:var(--radius);background:#f0f2f5;border:1px solid var(--border)}
+.kanban-col-header{padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.kanban-col-cnt{font-size:11px;background:#e2e8f0;border-radius:8px;padding:1px 7px;font-weight:600;color:var(--muted)}
+.kanban-col-body{padding:8px;display:flex;flex-direction:column;gap:6px;min-height:80px}
+.kanban-col.drag-over{background:#edf6e0;border-color:var(--accent)}
+.kanban-card{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px 12px;cursor:pointer;transition:all .15s;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.kanban-card:hover{border-color:var(--accent);box-shadow:0 2px 6px rgba(0,0,0,.1)}
+.kanban-card.dragging{opacity:.4}
+.kanban-card.dimmed{opacity:.25;filter:grayscale(.5)}
+.kanban-card-title{font-size:12px;font-weight:600;color:var(--text);margin-bottom:6px;line-height:1.4}
+.kanban-card-meta{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.kanban-card-bic{font-size:11px;color:var(--muted);margin-top:5px;display:flex;align-items:center;gap:4px}
+
+/* Dep add input */
+.dep-add{display:flex;gap:6px;margin-top:6px}
+.dep-add input{flex:1;font-size:12px;border:1px solid var(--border);border-radius:5px;padding:4px 8px;outline:none;font-family:inherit}
+.dep-add input:focus{border-color:var(--accent)}
+
+/* Dashboard */
+.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px}
+.bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:12px}
+.bar-lbl{width:110px;text-align:right;color:var(--muted);flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-track{flex:1;background:#f1f5f9;border-radius:4px;height:10px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;background:var(--accent);transition:width .4s}
+.bar-cnt{width:24px;text-align:right;color:var(--muted);font-weight:600;flex-shrink:0}
+
+/* Time tabs */
+.time-tabs{display:flex;gap:3px;background:#f1f5f9;border-radius:6px;padding:3px}
+.time-tab{padding:4px 11px;border-radius:4px;font-size:12px;font-weight:500;cursor:pointer;color:var(--muted);transition:all .15s}
+.time-tab.active{background:#fff;color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+
+/* Misc */
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:50px 20px;color:var(--muted)}
+.empty svg{width:36px;height:36px;margin-bottom:10px;opacity:.4}
+.empty p{font-size:13px}
+.toast{position:fixed;bottom:22px;right:22px;background:#1e293b;color:#fff;padding:11px 15px;border-radius:var(--radius);font-size:13px;font-weight:500;z-index:1000;box-shadow:var(--shadow-md);animation:slideUp .2s ease}
+@keyframes slideUp{from{transform:translateY(10px);opacity:0}to{transform:translateY(0);opacity:1}}
+.dot-live{width:7px;height:7px;border-radius:50%;background:#22c55e;display:inline-block;margin-right:5px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+
+// ── SHAREPOINT CONFIG ─────────────────────────────────────────────────────────
+// ⚠️  Fill in these 4 values before sharing (see setup guide in Downloads)
+const SP_CONFIG = {
+  tenantId:  'fb336b50-6771-4ed3-b52c-49b0e8679d49',     // Azure AD tenant ID (GUID)
+  clientId:  'bda3bbdb-f0f2-4ccb-83f8-9ca29f8bb995',     // Azure AD app client ID (GUID)
+  siteUrl:   'https://ltpholdco.sharepoint.com/sites/MTGDataWarehouseProject',
+  listName:  'GRID_Data',          // SharePoint list name — create this first
+};
+
+const _spHost   = new URL(SP_CONFIG.siteUrl).origin;
+const _msalApp  = new msal.PublicClientApplication({
+  auth: {
+    clientId:    SP_CONFIG.clientId,
+    authority:   `https://login.microsoftonline.com/${SP_CONFIG.tenantId}`,
+    redirectUri: window.location.origin + window.location.pathname,
+  },
+  cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false },
+});
+
+// Silently acquire a SharePoint bearer token (popup fallback)
+async function _spToken() {
+  const accts = _msalApp.getAllAccounts();
+  if (!accts.length) return null;
+  const req = { scopes: [`${_spHost}/.default`], account: accts[0] };
+  try { return (await _msalApp.acquireTokenSilent(req)).accessToken; }
+  catch { return (await _msalApp.acquireTokenPopup(req)).accessToken; }
+}
+
+// Read the single GRID_Data list item from SharePoint
+async function spLoad() {
+  const token = await _spToken();
+  if (!token) return {};
+  try {
+    const res = await fetch(
+      `${SP_CONFIG.siteUrl}/_api/web/lists/getbytitle('${SP_CONFIG.listName}')/items?$select=Id,AppData&$top=1`,
+      { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json;odata=nometadata' } }
+    );
+    if (!res.ok) return {};
+    const d   = await res.json();
+    const row = (d.value || [])[0];
+    if (!row) return { _itemId: null };
+    return { ...JSON.parse(row.AppData || '{}'), _itemId: row.Id };
+  } catch { return {}; }
+}
+
+// Write/create the single GRID_Data list item
+async function spSave(itemId, payload) {
+  const token = await _spToken();
+  if (!token) return null;
+  const body  = JSON.stringify({ AppData: JSON.stringify(payload) });
+  const base  = `${SP_CONFIG.siteUrl}/_api/web/lists/getbytitle('${SP_CONFIG.listName}')/items`;
+  const hdrs  = { Authorization: `Bearer ${token}`, Accept: 'application/json;odata=nometadata', 'Content-Type': 'application/json;odata=nometadata' };
+  try {
+    if (itemId) {
+      await fetch(`${base}(${itemId})`, { method: 'POST', headers: { ...hdrs, 'If-Match': '*', 'X-HTTP-Method': 'MERGE' }, body });
+      return itemId;
+    } else {
+      const res = await fetch(base, { method: 'POST', headers: hdrs, body });
+      const d   = await res.json();
+      return d.Id || null;
+    }
+  } catch(e) { console.error('spSave failed', e); return itemId; }
+}
+
+const { useState, useMemo, useRef, useEffect } = React;
+
+// ── SEED DATA ────────────────────────────────────────────────────────────────
+const WORKING_SEED = [
+  { id:'w1',  name:'Monthly Operating Review',        team:'All',          priority:'High',   status:'Active',  next_step:'Get unified hierarchies wired into MOR report',       ball_in_court:'Accordion', bucket:'Internal Review / Scoping',     complexity:'High',   requestor:null,     source:'Email', notes:[], flags:['Blocked by Unified Hierarchies'], blockedBy:['Unified Hierarchies'], rationale:'Affects all teams, exec-sponsored, no workaround until unified hierarchies are done.', date_accepted:'2025-03-10' },
+  { id:'w2',  name:'Unified Hierarchies',             team:'All',          priority:'High',   status:'Active',  next_step:'Accordion to develop unified hierarchy structure',      ball_in_court:'Accordion', bucket:'Work-in-Progress / Active Dev',  complexity:'High',   requestor:'Liz',    source:'Email', notes:[], flags:[], blockedBy:[], rationale:'Cross-functional dependency — blocks MOR, MDM, and Master Data work.', date_accepted:'2025-03-10' },
+  { id:'w3',  name:'Sales Dashboard',                 team:'Executive',    priority:'High',   status:'Active',  next_step:'Share latest version with team on Thursday',           ball_in_court:'Nick',      bucket:'Work-in-Progress / Active Dev',  complexity:'Medium', requestor:'Dave M', source:'Email', notes:[], flags:[], blockedBy:[], rationale:'Executive-requested by Dave M, revenue-visibility impact.', date_accepted:'2025-03-10' },
+  { id:'w4',  name:'Product Mix & Category',          team:'Executive',    priority:'High',   status:'Active',  next_step:'Accordion to develop',                                 ball_in_court:'Accordion', bucket:'Internal Review / Scoping',     complexity:'Medium', requestor:'Dave M', source:'Teams', notes:[], flags:[], blockedBy:[], rationale:'Executive-requested, revenue analytics, clear scope defined.', date_accepted:'2025-03-12' },
+  { id:'w5',  name:'PACE',                            team:'Ops',          priority:'High',   status:'Active',  next_step:'Provide access to champions',                          ball_in_court:'RGMs',      bucket:'Internal Review / Scoping',     complexity:'Medium', requestor:null,     source:'Email', notes:[], flags:[], blockedBy:[], rationale:'Ops-critical, time-sensitive, clear next step identified.', date_accepted:'2025-03-14' },
+  { id:'w6',  name:'Missing Sales Jobs',              team:'Ops',          priority:'High',   status:'Active',  next_step:'Mel and Steve to review and confirm',                  ball_in_court:'Mel, Steve',bucket:'Internal Review / Scoping',     complexity:'Low',    requestor:null,     source:'Email', notes:[], flags:[], blockedBy:[], rationale:'Data quality issue affecting sales reporting accuracy.', date_accepted:'2025-03-14' },
+  { id:'w7',  name:'Regional Drop Down Filter (CEO)', team:'Executive',    priority:'High',   status:'Active',  next_step:'Scope consistent filtering solution with Accordion',   ball_in_court:'Accordion', bucket:'Internal Review / Scoping',     complexity:'Medium', requestor:'Dave M', source:'Teams', notes:[], flags:['Needs review — flagged by stakeholder'], blockedBy:[], rationale:'Executive-requested, cross-functional reporting impact, flagged for review.', date_accepted:'2025-03-17' },
+  { id:'w8',  name:'MKTG Spend',                      team:'Marketing',    priority:'Medium', status:'Active',  next_step:'Review with Accordion during next status call',        ball_in_court:'Accordion', bucket:'Internal Review / Scoping',     complexity:'Medium', requestor:null,     source:'Teams', notes:[], flags:[], blockedBy:[], rationale:'Single department, clear owner, no hard deadline.', date_accepted:'2025-03-20' },
+  { id:'w9',  name:'Global Hierarchy Revenue Check',  team:'Finance',      priority:'Medium', status:'Active',  next_step:'Liz to verify whether figures are incorrect',           ball_in_court:'Finance',   bucket:'Internal Review / Scoping',     complexity:'Low',    requestor:'Julia',  source:'Email', notes:[], flags:[], blockedBy:[], rationale:'Finance accuracy check, moderate urgency, waiting on Liz confirmation.', date_accepted:'2025-03-20' },
+  { id:'w10', name:'Memberships',                     team:'Marketing',    priority:'Medium', status:'Active',  next_step:'Nick to review latest from Accordion on Thursday',     ball_in_court:'Nick',      bucket:'Internal Review / Scoping',     complexity:'Low',    requestor:null,     source:'Teams', notes:[], flags:[], blockedBy:[], rationale:'Marketing enhancement, time already blocked for review.', date_accepted:'2025-03-22' },
+  { id:'w11', name:'RDD',                             team:'Marketing',    priority:'Medium', status:'Active',  next_step:'Nick to build based on latest from Jenny',             ball_in_court:'Nick',      bucket:'Internal Review / Scoping',     complexity:'Medium', requestor:'Jenny',  source:'Email', notes:[], flags:[], blockedBy:[], rationale:'Marketing reporting, owner identified, clear timeline.', date_accepted:'2025-03-22' },
+  { id:'w12', name:'Netsuite Rebuild',                team:'Finance',      priority:'Low',    status:'On Hold', next_step:'Meeting with SCH on Thursday for final proposal',      ball_in_court:'SCH',       bucket:'Backlog [Reviewed, On Hold]',    complexity:'High',   requestor:null,     source:'Email', notes:[], flags:[], blockedBy:[], rationale:'Finance-only, longer-term rebuild, external vendor dependency.', date_accepted:'2025-03-25' },
+  { id:'w13', name:'Metrics Unpivot',                 team:'Internal Dev', priority:'Low',    status:'Active',  next_step:'Slowly start to transition to new table structure',   ball_in_court:'Nick',      bucket:'Backlog [Reviewed, On Hold]',    complexity:'Medium', requestor:null,     source:'Email', notes:[], flags:[], blockedBy:[], rationale:'Internal data restructuring, no hard deadline, gradual transition.', date_accepted:'2025-03-25' },
+  { id:'w14', name:'Master Data Management',          team:'All',          priority:'Low',    status:'Blocked', next_step:'Get unified hierarchies built first',                  ball_in_court:'Accordion', bucket:'Backlog [Reviewed, On Hold]',    complexity:'High',   requestor:null,     source:'Email', notes:[], flags:['Blocked by Unified Hierarchies'], blockedBy:['Unified Hierarchies'], rationale:'Depends on unified hierarchies being completed first.', date_accepted:'2025-03-25' },
+  { id:'w15', name:'Farraday Integration',            team:'Marketing',    priority:'Low',    status:'Active',  next_step:'Meeting with Farraday team on Thursday',              ball_in_court:'Farraday',  bucket:'Backlog [Reviewed, On Hold]',    complexity:'Medium', requestor:'Luvean', source:'Teams', notes:[], flags:['Pending Fivetran clarification'], blockedBy:[], rationale:'Single team, exploratory, vendor meeting pending.', date_accepted:'2025-04-01' },
+  { id:'w16', name:'Josh Wages / Position Mapping',   team:'Ops',          priority:'Low',    status:'On Hold', next_step:'Josh to reply with positions he wants mapped',         ball_in_court:'Josh',      bucket:'Backlog [Reviewed, On Hold]',    complexity:'Low',    requestor:'Josh',   source:'Email', notes:[], flags:[], blockedBy:[], rationale:"Single stakeholder, internal Ops request, ball in Josh's court.", date_accepted:'2025-04-01' },
+  { id:'w17', name:'Inventory Templates',             team:'Supply Chain', priority:'Low',    status:'Active',  next_step:'Pull dim_sku to include base cost in templates',       ball_in_court:'Nick',      bucket:'Backlog [Reviewed, On Hold]',    complexity:'Low',    requestor:null,     source:'Teams', notes:[], flags:[], blockedBy:[], rationale:'Supply Chain only, no deadline stated.', date_accepted:'2025-04-05' },
+  { id:'w18', name:'Ticket Intake System',            team:'Internal Dev', priority:'Low',    status:'Active',  next_step:'Start building after meeting with Ken',                ball_in_court:'Nick',      bucket:'Backlog [Reviewed, On Hold]',    complexity:'Medium', requestor:null,     source:'Email', notes:[], flags:[], blockedBy:[], rationale:'Internal tooling, no hard deadline, owner identified.', date_accepted:'2025-04-10' },
+  { id:'w19', name:'Data Dictionary',                 team:'Internal Dev', priority:'Low',    status:'Active',  next_step:'Start building after meeting with Ken',                ball_in_court:'Nick',      bucket:'Backlog [Reviewed, On Hold]',    complexity:'Low',    requestor:null,     source:'Email', notes:[], flags:[], blockedBy:[], rationale:'Internal tooling, helpful for onboarding, no deadline.', date_accepted:'2025-04-10' },
+  { id:'w20', name:'Sage',                            team:'Internal Dev', priority:'Not Yet',status:'On Hold', next_step:'Revisit when other priorities are cleared',           ball_in_court:'Nick',      bucket:'Backlog [Reviewed, On Hold]',    complexity:'Low',    requestor:null,     source:'Email', notes:[], flags:[], blockedBy:[], rationale:'No business case, owner, or timeline stated.', date_accepted:'2025-04-15' },
+];
+
+const INTAKE_SEED = [
+  { id:'i1', name:'Field Ops Commission Report',  source:'Email', requestor:'Marcus T', team:'Field Ops',  raw:'Need a report showing commission earnings by region and rep for Q2 payroll review. Want to filter by territory and compare to quota.',         priority:'High',   rationale:'Payroll dependency, regional ops impact, time-sensitive for Q2 close.',          flags:[], complexity:'Medium', date_received:'2025-05-20', status:'Pending' },
+  { id:'i2', name:'Vendor Spend Dashboard',        source:'Teams', requestor:'Sandra K', team:'Finance',    raw:'Looking for visibility into vendor spend by category month over month. Currently pulling this manually from Netsuite exports.',                priority:'Medium', rationale:'Finance ops efficiency, single department, no hard deadline.',                   flags:[], complexity:'Medium', date_received:'2025-05-22', status:'Pending' },
+  { id:'i3', name:'HR Headcount Tracker',          source:'Email', requestor:'Priya M',  team:'Ops',        raw:'Want to track headcount by department, hire date, and active/termed status. Pulled from Workday. Need this for monthly ops review.',            priority:'Medium', rationale:'Ops reporting, supports MOR, depends on Workday integration.',                   flags:['Workday integration TBD'], complexity:'High', date_received:'2025-05-24', status:'Pending' },
+];
+
+// ── CONSTANTS ────────────────────────────────────────────────────────────────
+const BUCKETS = [
+  'Internal Review / Scoping',
+  'Work-in-Progress / Active Dev',
+  'Backlog [Reviewed, On Hold]',
+  'End-User / Acceptance Testing',
+  'Push to DEV/Prod',
+];
+const BUCKET_SHORT = {
+  'Internal Review / Scoping':     'Review / Scoping',
+  'Work-in-Progress / Active Dev': 'Active Dev',
+  'Backlog [Reviewed, On Hold]':   'Backlog',
+  'End-User / Acceptance Testing': 'UAT',
+  'Push to DEV/Prod':              'Push to Prod',
+};
+const P_ORDER = { High:0, Medium:1, Low:2, 'Not Yet':3 };
+const P_COLORS = { High:'#dc2626', Medium:'#d97706', Low:'#16a34a', 'Not Yet':'#6b7280' };
+const S_COLORS = { Active:'#9db800', 'On Hold':'#6b7280', Blocked:'#7c3aed', Complete:'#059669' };
+const TEAMS = ['All','Executive','Ops','Finance','Marketing','Supply Chain','Field Ops','Internal Dev'];
+const COMPLEXITIES = ['Low','Medium','High'];
+const STATUSES = ['Active','On Hold','Blocked','Complete'];
+
+// ── SETTINGS CONTEXT ─────────────────────────────────────────────────────────
+const SettingsCtx = React.createContext(null);
+const useS = () => React.useContext(SettingsCtx);
+
+function pClass(p){ return {High:'b-high',Medium:'b-medium',Low:'b-low','Not Yet':'b-notyet'}[p]||'b-notyet'; }
+function sClass(s){ return {Active:'b-active','On Hold':'b-hold',Blocked:'b-blocked',Complete:'b-complete',Pending:'b-pending',Accepted:'b-accepted',Rejected:'b-rejected'}[s]||'b-pending'; }
+function fmtTs(){
+  return new Date().toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',hour12:true});
+}
+function withinDays(d, days){ if(!d||!days) return true; const c=new Date(); c.setDate(c.getDate()-days); return new Date(d)>=c; }
+
+// ── LOGO (GRID brand — PNG file, same folder as index.html) ─────────────────
+function GRIDMark({ size = 52 }) {
+  const h = Math.round(size * 138 / 130);
+  return <img src="./GRID_Logo.png" width={size} height={h} alt="GRID" style={{display:'block'}}/>;
+}
+
+// ── ICONS ────────────────────────────────────────────────────────────────────
+const Ico = {
+  Intake:  ()=><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0H4m8-4v4m0 0l-2-2m2 2l2-2"/></svg>,
+  Working: ()=><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2M9 12l2 2 4-4"/></svg>,
+  Dash:    ()=><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>,
+  Search:  ()=><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8"/><path strokeLinecap="round" d="M21 21l-4.35-4.35"/></svg>,
+  Close:   ()=><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M6 18L18 6M6 6l12 12"/></svg>,
+  Check:   ()=><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>,
+  Email:   ()=><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>,
+  Teams:   ()=><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>,
+  Table:   ()=><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M3 10h18M3 14h18M10 4v16M4 4h16a1 1 0 011 1v14a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1z"/></svg>,
+  Kanban:  ()=><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="11" rx="1"/><rect x="17" y="3" width="5" height="14" rx="1"/></svg>,
+};
+
+// ── TOAST ────────────────────────────────────────────────────────────────────
+function Toast({ msg, onDone }) {
+  React.useEffect(()=>{ const t=setTimeout(onDone,2200); return ()=>clearTimeout(t); },[]);
+  return <div className="toast">{msg}</div>;
+}
+
+// ── WORKING DRAWER ───────────────────────────────────────────────────────────
+function WorkingDrawer({ item: init, onClose, onUpdate, showToast, allItems }) {
+  const { settings } = useS();
+  const [item, setItem] = useState(init);
+  const [noteText, setNoteText] = useState('');
+  const [newDep, setNewDep] = useState('');
+  const [depSuggestions, setDepSuggestions] = useState([]);
+
+  function set(k, v) {
+    const updated = {...item, [k]: v};
+    setItem(updated);
+    onUpdate(updated);
+  }
+
+  function postNote() {
+    if (!noteText.trim()) return;
+    const entry = { text: noteText.trim(), ts: fmtTs() };
+    set('notes', [...(item.notes||[]), entry]);
+    setNoteText('');
+    showToast('Note posted');
+  }
+
+  function addDep(name) {
+    if (!name.trim() || (item.blockedBy||[]).includes(name.trim())) return;
+    set('blockedBy', [...(item.blockedBy||[]), name.trim()]);
+    setNewDep('');
+    setDepSuggestions([]);
+  }
+
+  function removeDep(name) {
+    set('blockedBy', (item.blockedBy||[]).filter(d => d !== name));
+  }
+
+  function handleDepInput(v) {
+    setNewDep(v);
+    if (v.length > 1) {
+      const q = v.toLowerCase();
+      setDepSuggestions(allItems.filter(w => w.id !== item.id && w.name.toLowerCase().includes(q)).slice(0,4));
+    } else {
+      setDepSuggestions([]);
+    }
+  }
+
+  const isNickAction = (item.ball_in_court||'').toLowerCase().includes('nick');
+
+  return (
+    <div className="drawer-overlay" onClick={e => e.target===e.currentTarget && onClose()}>
+      <div className="drawer">
+        <div className="drawer-header">
+          <div style={{flex:1,minWidth:0}}>
+            <input className="drawer-title-input" value={item.name}
+              onChange={e => set('name', e.target.value)}
+              onBlur={() => showToast('Saved')}/>
+            <div style={{display:'flex',gap:5,marginTop:7,flexWrap:'wrap',alignItems:'center'}}>
+              <span className={`badge ${pClass(item.priority)}`}>{item.priority}</span>
+              <span className={`badge ${sClass(item.status)}`}>{item.status}</span>
+              {isNickAction && <span style={{fontSize:11,fontWeight:700,color:var_accent,background:'#f4f9e0',border:'1px solid #c8dc6a',borderRadius:4,padding:'2px 7px'}}>⚡ Nick Action</span>}
+              {(item.blockedBy||[]).length > 0 && <span className="badge b-blocked">🔴 Blocked</span>}
+            </div>
+          </div>
+          <button className="btn btn-ghost btn-sm" style={{flexShrink:0}} onClick={onClose}><Ico.Close/></button>
+        </div>
+
+        <div className="drawer-body">
+          {/* Core fields grid */}
+          <div className="field-grid">
+            <div className="field">
+              <label>Priority</label>
+              <select value={item.priority} onChange={e => set('priority', e.target.value)}>
+                {settings.priorities.map(p => <option key={p}>{p}</option>)}
+              </select>
+            </div>
+            <div className="field">
+              <label>Status</label>
+              <select value={item.status} onChange={e => set('status', e.target.value)}>
+                {settings.statuses.map(s => <option key={s}>{s}</option>)}
+              </select>
+            </div>
+            <div className="field">
+              <label>Team</label>
+              <select value={item.team} onChange={e => set('team', e.target.value)}>
+                {settings.teams.map(t => <option key={t}>{t}</option>)}
+              </select>
+            </div>
+            <div className="field">
+              <label>Complexity <span style={{fontWeight:400,textTransform:'none',letterSpacing:0,color:'#9db800'}}>⚡ AI</span></label>
+              <select value={item.complexity} onChange={e => set('complexity', e.target.value)}>
+                {settings.complexities.map(c => <option key={c}>{c}</option>)}
+              </select>
+            </div>
+            <div className="field">
+              <label>Ball in Court</label>
+              <input value={item.ball_in_court||''} onChange={e => set('ball_in_court', e.target.value)}
+                onBlur={() => showToast('Saved')} placeholder="Who acts next"/>
+            </div>
+            <div className="field">
+              <label>Requestor</label>
+              <input value={item.requestor||''} onChange={e => set('requestor', e.target.value)}
+                onBlur={() => showToast('Saved')} placeholder="—"/>
+            </div>
+          </div>
+
+          {/* Next step - full width */}
+          <div className="field" style={{marginBottom:14}}>
+            <label>Next Step</label>
+            <input value={item.next_step||''} onChange={e => set('next_step', e.target.value)}
+              onBlur={() => showToast('Saved')} placeholder="What happens next..."/>
+          </div>
+
+          {/* Bucket - full width */}
+          <div className="field" style={{marginBottom:14}}>
+            <label>Bucket</label>
+            <select value={item.bucket} onChange={e => set('bucket', e.target.value)}>
+              {settings.buckets.map(b => <option key={b}>{b}</option>)}
+            </select>
+          </div>
+
+          {/* AI Rationale */}
+          {item.rationale && (
+            <div className="ai-box">
+              <div className="ai-box-lbl">⚡ Priority Rationale</div>
+              <div style={{fontSize:13,color:var_text,lineHeight:1.5}}>{item.rationale}</div>
+            </div>
+          )}
+
+          {/* Flags */}
+          {(item.flags||[]).length > 0 && (
+            <div className="flag-box">
+              <div style={{fontSize:10,fontWeight:700,color:'#92400e',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:5}}>⚠️ Flags</div>
+              {item.flags.map((f,i) => <div key={i} className="flag-item">• {f}</div>)}
+            </div>
+          )}
+
+          {/* Dependencies */}
+          <div className="dsec">Dependencies (Blocked By)</div>
+          {(item.blockedBy||[]).length === 0 && newDep === '' && (
+            <div style={{fontSize:12,color:var_muted,marginBottom:8}}>No dependencies</div>
+          )}
+          {(item.blockedBy||[]).length > 0 && (
+            <div className="deps-box">
+              <div className="deps-lbl">🔴 This item is blocked by:</div>
+              <div style={{display:'flex',flexWrap:'wrap'}}>
+                {item.blockedBy.map(d => (
+                  <span key={d} className="dep-tag" title="Click to remove" onClick={() => removeDep(d)}>
+                    🔴 {d} ✕
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="dep-add" style={{marginBottom:14,position:'relative'}}>
+            <input value={newDep} onChange={e => handleDepInput(e.target.value)}
+              placeholder="Type workstream name to add dependency..."
+              onKeyDown={e => e.key==='Enter' && addDep(newDep)}/>
+            <button className="btn btn-ghost btn-sm" onClick={() => addDep(newDep)}>+ Add</button>
+            {depSuggestions.length > 0 && (
+              <div style={{position:'absolute',top:'100%',left:0,right:0,background:var_surface,border:'1px solid var(--border)',borderRadius:var_radius,boxShadow:var_shadow,zIndex:10,marginTop:2}}>
+                {depSuggestions.map(s => (
+                  <div key={s.id} style={{padding:'7px 11px',cursor:'pointer',fontSize:12,borderBottom:'1px solid var(--border)'}}
+                    onMouseDown={() => { addDep(s.name); }} className="dep-suggestion">
+                    {s.name}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Notes */}
+          <div className="dsec">Notes Log</div>
+          <div className="notes-log">
+            {(item.notes||[]).length===0 && <div style={{padding:'12px',fontSize:12,color:var_muted}}>No notes yet.</div>}
+            {(item.notes||[]).map((n,i)=>(
+              <div key={i} className="note-entry">
+                <div className="note-ts">{n.ts}</div>
+                <div className="note-text">{n.text}</div>
+              </div>
+            ))}
+          </div>
+          <div className="note-composer">
+            <textarea value={noteText} onChange={e=>setNoteText(e.target.value)}
+              placeholder="Add a note…" onKeyDown={e=>{if(e.key==='Enter'&&e.metaKey)postNote();}}/>
+            <div style={{display:'flex',justifyContent:'flex-end'}}>
+              <button className="btn btn-primary btn-sm" onClick={postNote} disabled={!noteText.trim()}>Post Note</button>
+            </div>
+          </div>
+        </div>
+        <div className="drawer-footer">
+          {item.status!=='Complete' && <button className="btn btn-accept" onClick={()=>{set('status','Complete');showToast('Marked complete');}}><Ico.Check/> Mark Complete</button>}
+          {item.status==='Active' && <button className="btn btn-hold" onClick={()=>{set('status','On Hold');showToast('Put on hold');}}>⏸ Hold</button>}
+          {item.status==='On Hold' && <button className="btn btn-primary btn-sm" onClick={()=>{set('status','Active');showToast('Resumed');}}>▶ Resume</button>}
+          {item.status==='Complete' && <span style={{fontSize:13,color:'var(--s-complete)',fontWeight:600}}>✓ Complete</span>}
+          <button className="btn btn-ghost btn-sm" style={{marginLeft:'auto'}} onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// CSS variable helpers for JSX
+const var_accent='var(--accent)',var_text='var(--text)',var_muted='var(--muted)',var_surface='var(--surface)',var_radius='var(--radius)',var_shadow='var(--shadow)';
+
+// ── INTAKE DRAWER ────────────────────────────────────────────────────────────
+function IntakeDrawer({ item, onClose, onAccept, onReject }) {
+  const { settings } = useS();
+  const [priority, setPriority] = useState(item.priority||'Medium');
+  const [notes, setNotes] = useState('');
+  return (
+    <div className="drawer-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="drawer">
+        <div className="drawer-header">
+          <div style={{flex:1}}>
+            <div style={{fontSize:15,fontWeight:700,lineHeight:1.4}}>{item.name}</div>
+            <div style={{display:'flex',gap:5,marginTop:7,flexWrap:'wrap'}}>
+              <span className={`badge ${pClass(item.priority)}`}>{item.priority}</span>
+              <span className={`badge ${sClass(item.status)}`}>{item.status}</span>
+              <span className="badge" style={{background:'#f1f5f9',color:'var(--muted)',border:'1px solid var(--border)'}}>{item.source==='Email'?'✉️ Email':'💬 Teams'}</span>
+            </div>
+          </div>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}><Ico.Close/></button>
+        </div>
+        <div className="drawer-body">
+          <div className="field-grid" style={{marginBottom:14}}>
+            <div><div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'.5px',color:'var(--muted)',marginBottom:4}}>Requestor</div><div style={{fontSize:13}}>{item.requestor||'—'}</div></div>
+            <div><div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'.5px',color:'var(--muted)',marginBottom:4}}>Team</div><div style={{fontSize:13}}>{item.team}</div></div>
+            <div><div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'.5px',color:'var(--muted)',marginBottom:4}}>Received</div><div style={{fontSize:13}}>{item.date_received}</div></div>
+            <div><div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'.5px',color:'var(--muted)',marginBottom:4}}>Est. Complexity</div><div style={{fontSize:13}}>{item.complexity} <span style={{fontSize:10,color:var_accent,fontWeight:700}}>⚡ AI</span></div></div>
+          </div>
+          <div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'.5px',color:'var(--muted)',marginBottom:5}}>Request</div>
+          <div style={{background:'#f8fafc',border:'1px solid var(--border)',borderRadius:5,padding:'9px 12px',fontSize:12,color:'var(--muted)',marginBottom:14,lineHeight:1.6}}>{item.raw}</div>
+          <div className="ai-box">
+            <div className="ai-box-lbl">⚡ AI Priority Rationale</div>
+            <div style={{fontSize:13,color:var_text,lineHeight:1.5}}>{item.rationale}</div>
+          </div>
+          {(item.flags||[]).length>0 && (
+            <div className="flag-box">
+              <div style={{fontSize:10,fontWeight:700,color:'#92400e',textTransform:'uppercase',marginBottom:5}}>⚠️ Flags</div>
+              {item.flags.map((f,i)=><div key={i} className="flag-item">• {f}</div>)}
+            </div>
+          )}
+          <div className="field" style={{marginBottom:14}}>
+            <label>Override Priority</label>
+            <select value={priority} onChange={e=>setPriority(e.target.value)}>
+              {settings.priorities.map(p=><option key={p}>{p}</option>)}
+            </select>
+          </div>
+          <div className="field">
+            <label>Notes (optional)</label>
+            <textarea style={{minHeight:60,fontSize:13,border:'1px solid var(--border)',borderRadius:5,padding:'7px 10px',fontFamily:'inherit',outline:'none',resize:'vertical',width:'100%'}} rows={3} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Context before accepting..."/>
+          </div>
+        </div>
+        <div className="drawer-footer">
+          {item.status==='Pending' && <>
+            <button className="btn btn-accept" onClick={()=>onAccept(item,priority,notes)}><Ico.Check/> Accept → Working</button>
+            <button className="btn btn-reject" onClick={()=>onReject(item)}>✕ Reject</button>
+          </>}
+          {item.status!=='Pending' && <span style={{fontSize:13,color:var_muted}}>This request was {item.status.toLowerCase()}.</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── NEW INTAKE MODAL ─────────────────────────────────────────────────────────
+function NewIntakeModal({ onClose, onAdd, showToast }) {
+  const { settings } = useS();
+  const [step, setStep]       = useState('paste');
+  const [raw, setRaw]         = useState('');
+  const [source, setSource]   = useState('Email');
+  const [apiKey, setApiKey]   = useState(()=>{ try{ return localStorage.getItem('mtg-api-key')||''; }catch{ return ''; } });
+  const [parsing, setParsing] = useState(false);
+  const [parseErr, setParseErr] = useState('');
+  const [fields, setFields]   = useState({ name:'', requestor:'', team:'Ops', priority:'Medium', complexity:'Medium', rationale:'', flags:[] });
+  const [flagInput, setFlagInput] = useState('');
+  function setF(k,v){ setFields(f=>({...f,[k]:v})); }
+
+  async function parse() {
+    if (!raw.trim()||!apiKey.trim()) return;
+    setParsing(true); setParseErr('');
+    try { localStorage.setItem('mtg-api-key', apiKey.trim()); } catch {}
+    const prompt = `You are parsing a stakeholder request for the analytics/data team at Master Trades Group. Extract the following fields and return ONLY valid JSON with no markdown or extra text.\n\nFields:\n- name: short descriptive project title (5-10 words)\n- requestor: the requesting person's name if mentioned, or null\n- team: best match from [Executive, Ops, Finance, Marketing, Supply Chain, Field Ops, Internal Dev, All]\n- priority: one of [High, Medium, Low, Not Yet]\n- complexity: one of [Low, Medium, High]\n- rationale: 1-2 sentences explaining why you chose that priority\n- flags: array of strings for any dependencies or concerns (empty array if none)\n\nMessage:\n${raw}\n\nReturn only valid JSON.`;
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':apiKey.trim(),'anthropic-version':'2023-06-01','anthropic-dangerous-allow-browser':'true'},
+        body: JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:512, messages:[{role:'user',content:prompt}] }),
+      });
+      if (!res.ok) { const e=await res.json().catch(()=>({})); throw new Error(e.error?.message||`API error ${res.status}`); }
+      const data = await res.json();
+      const text = (data.content[0]?.text||'{}').replace(/```json\n?|\n?```/g,'').trim();
+      const p = JSON.parse(text);
+      setFields({ name:p.name||'', requestor:p.requestor||'', team:p.team||'Ops', priority:p.priority||'Medium', complexity:p.complexity||'Medium', rationale:p.rationale||'', flags:Array.isArray(p.flags)?p.flags:[] });
+      setStep('review');
+    } catch(e) { setParseErr(e.message||'Parse failed. Check your API key.'); }
+    finally { setParsing(false); }
+  }
+
+  function addFlag(){ if(!flagInput.trim()) return; setF('flags',[...fields.flags,flagInput.trim()]); setFlagInput(''); }
+  function removeFlag(i){ setF('flags',fields.flags.filter((_,idx)=>idx!==i)); }
+  function save(){
+    if(!fields.name.trim()) return;
+    onAdd({ id:'i_'+Date.now(), name:fields.name.trim(), source, requestor:fields.requestor||null, team:fields.team, raw:raw.trim(), priority:fields.priority, rationale:fields.rationale, flags:fields.flags, complexity:fields.complexity, date_received:new Date().toISOString().slice(0,10), status:'Pending' });
+    showToast('Request added to intake queue'); onClose();
+  }
+
+  return (
+    <div className="drawer-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="drawer">
+        <div className="drawer-header">
+          <div style={{flex:1}}>
+            <div style={{fontSize:15,fontWeight:700}}>New Intake Request</div>
+            <div style={{fontSize:12,color:var_muted,marginTop:3}}>{step==='paste'?'Paste the email or Teams message below':'Review and edit AI-parsed fields'}</div>
+          </div>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}><Ico.Close/></button>
+        </div>
+        <div className="drawer-body">
+          {step==='paste' ? (
+            <>
+              <div className="field" style={{marginBottom:14}}>
+                <label>Source</label>
+                <select value={source} onChange={e=>setSource(e.target.value)}><option>Email</option><option>Teams</option></select>
+              </div>
+              <div className="field" style={{marginBottom:14}}>
+                <label>Paste email / Teams message</label>
+                <textarea value={raw} onChange={e=>setRaw(e.target.value)} placeholder="Paste the full message here…" style={{minHeight:180,resize:'vertical'}}/>
+              </div>
+              <div className="field" style={{marginBottom:5}}>
+                <label>Claude API Key <span style={{fontWeight:400,textTransform:'none',letterSpacing:0,fontSize:10}}>(required — saved locally)</span></label>
+                <input type="password" value={apiKey} onChange={e=>setApiKey(e.target.value)} placeholder="sk-ant-api03-…"/>
+              </div>
+              <div style={{fontSize:11,color:var_muted,marginBottom:14}}>Get a key at <b>console.anthropic.com</b> → API Keys.</div>
+              {parseErr && <div style={{background:'#fef2f2',border:'1px solid var(--high-border)',borderRadius:'var(--radius)',padding:'9px 12px',fontSize:12,color:'var(--high)',marginBottom:12}}>⚠️ {parseErr}</div>}
+            </>
+          ) : (
+            <>
+              <div className="field" style={{marginBottom:14}}><label>Request Title</label><input value={fields.name} onChange={e=>setF('name',e.target.value)}/></div>
+              <div className="field-grid" style={{marginBottom:14}}>
+                <div className="field"><label>Requestor</label><input value={fields.requestor||''} onChange={e=>setF('requestor',e.target.value)} placeholder="Name"/></div>
+                <div className="field"><label>Team</label><select value={fields.team} onChange={e=>setF('team',e.target.value)}>{settings.teams.map(t=><option key={t}>{t}</option>)}</select></div>
+                <div className="field"><label>Priority</label><select value={fields.priority} onChange={e=>setF('priority',e.target.value)}>{settings.priorities.map(p=><option key={p}>{p}</option>)}</select></div>
+                <div className="field"><label>Complexity</label><select value={fields.complexity} onChange={e=>setF('complexity',e.target.value)}>{settings.complexities.map(c=><option key={c}>{c}</option>)}</select></div>
+              </div>
+              <div className="field" style={{marginBottom:14}}><label>AI Rationale</label><textarea value={fields.rationale} onChange={e=>setF('rationale',e.target.value)} style={{minHeight:70,resize:'vertical'}}/></div>
+              {fields.flags.length>0 && (
+                <div className="flag-box" style={{marginBottom:12}}>
+                  <div style={{fontSize:10,fontWeight:700,color:'#92400e',textTransform:'uppercase',marginBottom:6}}>⚠️ Flags</div>
+                  {fields.flags.map((f,i)=>(
+                    <div key={i} style={{display:'flex',alignItems:'center',gap:6,marginBottom:3}}>
+                      <span style={{flex:1,fontSize:12,color:'#92400e'}}>• {f}</span>
+                      <button onClick={()=>removeFlag(i)} style={{border:'none',background:'none',cursor:'pointer',color:'#dc2626',fontSize:14,fontWeight:700}}>×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="dep-add" style={{marginBottom:12}}>
+                <input value={flagInput} onChange={e=>setFlagInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addFlag()} placeholder="Add a flag or dependency…"/>
+                <button className="btn btn-ghost btn-sm" onClick={addFlag}>+ Flag</button>
+              </div>
+              <div style={{background:'#f8fafc',border:'1px solid var(--border)',borderRadius:5,padding:'8px 11px',fontSize:11,color:var_muted,lineHeight:1.5,maxHeight:72,overflow:'auto'}}><b>Raw:</b> {raw}</div>
+            </>
+          )}
+        </div>
+        <div className="drawer-footer">
+          {step==='paste' ? (
+            <><button className="btn btn-primary" onClick={parse} disabled={!raw.trim()||!apiKey.trim()||parsing}>{parsing?'⏳ Parsing…':'⚡ Parse with AI →'}</button><button className="btn btn-ghost btn-sm" style={{marginLeft:'auto'}} onClick={onClose}>Cancel</button></>
+          ) : (
+            <><button className="btn btn-primary" onClick={save} disabled={!fields.name.trim()}>+ Add to Intake</button><button className="btn btn-ghost btn-sm" onClick={()=>setStep('paste')}>← Back</button><button className="btn btn-ghost btn-sm" style={{marginLeft:'auto'}} onClick={onClose}>Cancel</button></>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── KANBAN BOARD ─────────────────────────────────────────────────────────────
+function KanbanBoard({ items, onSelect, nickActionOn }) {
+  const { settings } = useS();
+  const [dragId, setDragId] = useState(null);
+  const [overBucket, setOverBucket] = useState(null);
+  const [itemsState, setItemsState] = useState(items);
+  React.useEffect(()=>setItemsState(items),[items]);
+  function onDragStart(e,id){ setDragId(id); e.dataTransfer.effectAllowed='move'; }
+  function onDragOver(e,bucket){ e.preventDefault(); setOverBucket(bucket); }
+  function onDrop(e,bucket){
+    e.preventDefault();
+    if(dragId){ setItemsState(ii=>ii.map(i=>i.id===dragId?{...i,bucket}:i)); const moved=itemsState.find(i=>i.id===dragId); if(moved) onSelect({...moved,bucket},true); }
+    setDragId(null); setOverBucket(null);
+  }
+  return (
+    <div className="kanban-wrap">
+      <div className="kanban-board">
+        {settings.buckets.map(bucket=>{
+          const cards=itemsState.filter(i=>i.bucket===bucket).sort((a,b)=>(P_ORDER[a.priority]??9)-(P_ORDER[b.priority]??9));
+          return (
+            <div key={bucket} className={`kanban-col${overBucket===bucket?' drag-over':''}`}
+              onDragOver={e=>onDragOver(e,bucket)} onDrop={e=>onDrop(e,bucket)} onDragLeave={()=>setOverBucket(null)}>
+              <div className="kanban-col-header"><span>{BUCKET_SHORT[bucket]||bucket}</span><span className="kanban-col-cnt">{cards.length}</span></div>
+              <div className="kanban-col-body">
+                {cards.map(card=>{
+                  const isNick=(card.ball_in_court||'').toLowerCase().includes('nick');
+                  const dim=nickActionOn&&!isNick;
+                  return (
+                    <div key={card.id} className={`kanban-card${card.id===dragId?' dragging':''}${dim?' dimmed':''}`}
+                      draggable={true} onDragStart={e=>onDragStart(e,card.id)} onClick={()=>!dim&&onSelect(card,false)}>
+                      <div className="kanban-card-title">{card.name}</div>
+                      <div className="kanban-card-meta">
+                        <span className={`badge ${pClass(card.priority)}`}>{card.priority}</span>
+                        <span className={`badge ${sClass(card.status)}`}>{card.status}</span>
+                        {(card.blockedBy||[]).length>0&&<span style={{fontSize:10,color:'var(--s-blocked)'}}>🔴</span>}
+                      </div>
+                      {card.ball_in_court&&<div className="kanban-card-bic"><span style={{fontSize:10}}>👤</span> {card.ball_in_court}</div>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── INTAKE PAGE ───────────────────────────────────────────────────────────────
+function IntakePage({ intake, onAccept, onReject, onAdd, showToast }) {
+  const [selected, setSelected] = useState(null);
+  const [showAll, setShowAll]   = useState(false);
+  const [showNew, setShowNew]   = useState(false);
+  const pending  = intake.filter(i=>i.status==='Pending');
+  const resolved = intake.filter(i=>i.status!=='Pending');
+  const shown = showAll ? intake : pending;
+  return (
+    <div className="page">
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+        <div style={{fontSize:13,color:var_muted}}><b style={{color:var_text}}>{pending.length}</b> pending review{resolved.length>0&&<> · {resolved.length} resolved</>}</div>
+        <div style={{display:'flex',gap:8}}>
+          <button className="btn btn-ghost btn-sm" onClick={()=>setShowAll(x=>!x)}>{showAll?'Pending only':'Show all history'}</button>
+          <button className="btn btn-primary btn-sm" onClick={()=>setShowNew(true)}>+ New Request</button>
+        </div>
+      </div>
+      <div className="card">
+        {shown.length===0 ? (
+          <div className="empty"><Ico.Intake/><p>Queue is clear — no pending requests.</p></div>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Request</th><th>Priority</th><th>Complexity</th><th>Team</th><th>Source</th><th>Requestor</th><th>Received</th><th>Status</th></tr></thead>
+              <tbody>
+                {shown.map(i=>(
+                  <tr key={i.id} onClick={()=>setSelected(i)}>
+                    <td><div className="td-main">{i.name}</div><div className="td-sub td-trunc">{i.raw}</div></td>
+                    <td><span className={`badge ${pClass(i.priority)}`}>{i.priority}</span></td>
+                    <td className="td-muted">{i.complexity} <span style={{fontSize:10,color:var_accent}}>⚡</span></td>
+                    <td className="td-muted">{i.team}</td>
+                    <td className="td-muted">{i.source}</td>
+                    <td className="td-muted">{i.requestor||'—'}</td>
+                    <td className="td-muted" style={{whiteSpace:'nowrap'}}>{i.date_received}</td>
+                    <td><span className={`badge ${sClass(i.status)}`}>{i.status}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+      {selected&&<IntakeDrawer item={selected} onClose={()=>setSelected(null)}
+        onAccept={(item,priority,notes)=>{onAccept(item,priority,notes);setSelected(null);showToast('Accepted → added to Working');}}
+        onReject={(item)=>{onReject(item);setSelected(null);showToast('Request rejected');}}/>}
+      {showNew&&<NewIntakeModal onClose={()=>setShowNew(false)} onAdd={onAdd} showToast={showToast}/>}
+    </div>
+  );
+}
+
+// ── NEW WORKING MODAL ────────────────────────────────────────────────────────
+function NewWorkingModal({ onClose, onAdd, showToast }) {
+  const { settings } = useS();
+  const [f, setF] = useState({ name:'', team:'Ops', priority:'Medium', status:'Active', next_step:'', ball_in_court:'Nick', bucket:'Internal Review / Scoping', complexity:'Medium', requestor:'', source:'Email', rationale:'' });
+  const set = (k,v) => setF(x=>({...x,[k]:v}));
+  function save(){
+    if(!f.name.trim()) return;
+    onAdd({...f, id:'w_'+Date.now(), name:f.name.trim(), notes:[], flags:[], blockedBy:[], date_accepted:new Date().toISOString().slice(0,10)});
+    showToast('Workstream added'); onClose();
+  }
+  return (
+    <div className="drawer-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="drawer">
+        <div className="drawer-header">
+          <div style={{flex:1}}>
+            <div style={{fontSize:15,fontWeight:700}}>New Workstream</div>
+            <div style={{fontSize:12,color:var_muted,marginTop:3}}>Fill in what you know — everything is editable later</div>
+          </div>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}><Ico.Close/></button>
+        </div>
+        <div className="drawer-body">
+          <div className="field" style={{marginBottom:16}}>
+            <label>Name <span style={{color:'var(--high)'}}>*</span></label>
+            <input autoFocus value={f.name} onChange={e=>set('name',e.target.value)} onKeyDown={e=>e.key==='Enter'&&save()} placeholder="e.g. Sales Dashboard by Region"/>
+          </div>
+          <div className="field-grid" style={{marginBottom:14}}>
+            <div className="field"><label>Priority</label><select value={f.priority} onChange={e=>set('priority',e.target.value)}>{settings.priorities.map(p=><option key={p}>{p}</option>)}</select></div>
+            <div className="field"><label>Status</label><select value={f.status} onChange={e=>set('status',e.target.value)}>{settings.statuses.map(s=><option key={s}>{s}</option>)}</select></div>
+            <div className="field"><label>Team</label><select value={f.team} onChange={e=>set('team',e.target.value)}>{settings.teams.map(t=><option key={t}>{t}</option>)}</select></div>
+            <div className="field"><label>Complexity</label><select value={f.complexity} onChange={e=>set('complexity',e.target.value)}>{settings.complexities.map(c=><option key={c}>{c}</option>)}</select></div>
+            <div className="field"><label>Requestor</label><input value={f.requestor} onChange={e=>set('requestor',e.target.value)} placeholder="Name"/></div>
+            <div className="field"><label>Source</label><select value={f.source} onChange={e=>set('source',e.target.value)}><option>Email</option><option>Teams</option><option>Direct</option><option>Meeting</option></select></div>
+          </div>
+          <div className="field" style={{marginBottom:14}}><label>Bucket</label><select value={f.bucket} onChange={e=>set('bucket',e.target.value)}>{settings.buckets.map(b=><option key={b}>{b}</option>)}</select></div>
+          <div className="field" style={{marginBottom:14}}><label>Ball in Court</label><input value={f.ball_in_court} onChange={e=>set('ball_in_court',e.target.value)} placeholder="Who's responsible right now?"/></div>
+          <div className="field" style={{marginBottom:14}}><label>Next Step</label><input value={f.next_step} onChange={e=>set('next_step',e.target.value)} placeholder="Immediate next action"/></div>
+          <div className="field"><label>Rationale <span style={{fontWeight:400,textTransform:'none',letterSpacing:0,fontSize:10}}>(optional)</span></label><textarea value={f.rationale} onChange={e=>set('rationale',e.target.value)} style={{minHeight:70,resize:'vertical'}} placeholder="Why is this being worked?"/></div>
+        </div>
+        <div className="drawer-footer">
+          <button className="btn btn-primary" onClick={save} disabled={!f.name.trim()}>+ Add Workstream</button>
+          <button className="btn btn-ghost btn-sm" style={{marginLeft:'auto'}} onClick={onClose}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── WORKING PAGE ──────────────────────────────────────────────────────────────
+function WorkingPage({ working, onUpdate, onAdd, showToast }) {
+  const { settings } = useS();
+  const [selected, setSelected] = useState(null);
+  const [showNew, setShowNew]   = useState(false);
+  const [view, setView]         = useState('table');
+  const [nickOnly, setNickOnly] = useState(false);
+  const [filters, setFilters]   = useState({ priority:'', status:'', team:'', q:'' });
+  const setF = (k,v) => setFilters(f=>({...f,[k]:v}));
+  const teams = useMemo(()=>[...new Set(working.map(w=>w.team).filter(Boolean))].sort(),[working]);
+  const filtered = useMemo(()=>{
+    let rows=[...working];
+    if(filters.status) rows=rows.filter(r=>r.status===filters.status);
+    else rows=rows.filter(r=>r.status!=='Complete');
+    if(filters.priority) rows=rows.filter(r=>r.priority===filters.priority);
+    if(filters.team)     rows=rows.filter(r=>r.team===filters.team);
+    if(filters.q){ const q=filters.q.toLowerCase(); rows=rows.filter(r=>r.name.toLowerCase().includes(q)||(r.requestor||'').toLowerCase().includes(q)); }
+    return rows.sort((a,b)=>(P_ORDER[a.priority]??9)-(P_ORDER[b.priority]??9));
+  },[working,filters]);
+  function handleUpdate(updated){ onUpdate(updated); if(selected?.id===updated.id) setSelected(updated); }
+  function handleSelect(item,fromKanban){ if(fromKanban){onUpdate(item);return;} setSelected(item); }
+  return (
+    <div className="page">
+      <div className="filter-bar">
+        <div className="search-box"><Ico.Search/><input placeholder="Search…" value={filters.q} onChange={e=>setF('q',e.target.value)}/></div>
+        <select className="fs" value={filters.priority} onChange={e=>setF('priority',e.target.value)}>
+          <option value="">All priorities</option>{settings.priorities.map(p=><option key={p}>{p}</option>)}
+        </select>
+        <select className="fs" value={filters.status} onChange={e=>setF('status',e.target.value)}>
+          <option value="">All statuses</option>{settings.statuses.map(s=><option key={s}>{s}</option>)}
+        </select>
+        <select className="fs" value={filters.team} onChange={e=>setF('team',e.target.value)}>
+          <option value="">All teams</option>{teams.map(t=><option key={t}>{t}</option>)}
+        </select>
+        <div style={{flex:1}}/>
+        <button className="btn btn-primary btn-sm" onClick={()=>setShowNew(true)}>+ New</button>
+        <button className={`btn btn-ghost btn-sm${nickOnly?' on':''}`} onClick={()=>setNickOnly(x=>!x)}>⚡ Nick Action</button>
+        <div className="view-toggle">
+          <button className={`vt-btn${view==='table'?' active':''}`} onClick={()=>setView('table')}><span style={{display:'inline-flex',alignItems:'center',gap:4}}><svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M3 10h18M3 14h18M10 4v16M4 4h16a1 1 0 011 1v14a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1z"/></svg> Table</span></button>
+          <button className={`vt-btn${view==='kanban'?' active':''}`} onClick={()=>setView('kanban')}><span style={{display:'inline-flex',alignItems:'center',gap:4}}><svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="11" rx="1"/><rect x="17" y="3" width="5" height="14" rx="1"/></svg> Kanban</span></button>
+        </div>
+      </div>
+      {view==='table' ? (
+        <div className="card">
+          {filtered.length===0 ? <div className="empty"><Ico.Working/><p>No workstreams match.</p></div> : (
+            <div className="table-wrap">
+              <table>
+                <thead><tr><th>Workstream</th><th>Priority</th><th>Team</th><th>Status</th><th>Next Step</th><th>Ball in Court</th><th>Bucket</th></tr></thead>
+                <tbody>
+                  {filtered.map(w=>{
+                    const isNick=(w.ball_in_court||'').toLowerCase().includes('nick');
+                    const dim=nickOnly&&!isNick;
+                    return (
+                      <tr key={w.id} className={dim?'dimmed':''} onClick={()=>!dim&&setSelected(w)}>
+                        <td>
+                          <div className="td-main">{w.name}</div>
+                          {(w.blockedBy||[]).length>0&&<div className="td-sub" style={{color:'var(--s-blocked)'}}>🔴 Blocked by {w.blockedBy.join(', ')}</div>}
+                        </td>
+                        <td><span className={`badge ${pClass(w.priority)}`}>{w.priority}</span></td>
+                        <td className="td-muted">{w.team}</td>
+                        <td><span className={`badge ${sClass(w.status)}`}>{w.status}</span></td>
+                        <td className="td-muted td-trunc">{w.next_step||'—'}</td>
+                        <td className="td-muted" style={{fontWeight:isNick?700:'',color:isNick?var_accent:''}}>{w.ball_in_court||'—'}</td>
+                        <td className="td-muted" style={{fontSize:11,maxWidth:140,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{BUCKET_SHORT[w.bucket]||w.bucket}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ) : (
+        <KanbanBoard items={filtered} onSelect={handleSelect} nickActionOn={nickOnly}/>
+      )}
+      {selected&&<WorkingDrawer item={selected} onClose={()=>setSelected(null)} onUpdate={handleUpdate} showToast={showToast} allItems={working}/>}
+      {showNew&&<NewWorkingModal onClose={()=>setShowNew(false)} onAdd={onAdd} showToast={showToast}/>}
+    </div>
+  );
+}
+
+// ── DASHBOARD PAGE ────────────────────────────────────────────────────────────
+function DashboardPage({ working, intake }) {
+  const { settings } = useS();
+  const [timeKey, setTimeKey] = useState('All');
+  const TIME_OPTS = [{label:'7d',days:7},{label:'30d',days:30},{label:'90d',days:90},{label:'All',days:0}];
+  const days = TIME_OPTS.find(t=>t.label===timeKey)?.days??0;
+  const fw = useMemo(()=>working.filter(w=>withinDays(w.date_accepted,days)),[working,days]);
+  const fi = useMemo(()=>intake.filter(i=>withinDays(i.date_received,days)),[intake,days]);
+  const totalW=fw.length, activeW=fw.filter(w=>w.status==='Active').length,
+        blockedW=fw.filter(w=>w.status==='Blocked').length;
+  const totalI=fi.length, accI=fi.filter(i=>i.status==='Accepted').length,
+        rejI=fi.filter(i=>i.status==='Rejected').length, pendI=fi.filter(i=>i.status==='Pending').length;
+  function BarChart({ data, max }) {
+    return <div>{data.map(({label,count,color})=>(
+      <div key={label} className="bar-row">
+        <div className="bar-lbl">{label}</div>
+        <div className="bar-track"><div className="bar-fill" style={{width:`${max?Math.round(count/max*100):0}%`,background:color||'var(--accent)'}}/></div>
+        <div className="bar-cnt">{count}</div>
+      </div>
+    ))}</div>;
+  }
+  const byPriority = settings.priorities.map(p=>({label:p,count:fw.filter(w=>w.priority===p).length,color:P_COLORS[p]}));
+  const byStatus   = settings.statuses.map(s=>({label:s,count:fw.filter(w=>w.status===s).length,color:S_COLORS[s]}));
+  const teamSet    = [...new Set(fw.map(w=>w.team))].sort();
+  const byTeam     = teamSet.map(t=>({label:t,count:fw.filter(w=>w.team===t).length}));
+  const byBucket   = settings.buckets.map(b=>({label:BUCKET_SHORT[b]||b,count:fw.filter(w=>w.bucket===b).length}));
+  const maxP=Math.max(1,...byPriority.map(x=>x.count)), maxS=Math.max(1,...byStatus.map(x=>x.count)),
+        maxT=Math.max(1,...byTeam.map(x=>x.count)),     maxB=Math.max(1,...byBucket.map(x=>x.count));
+  return (
+    <div className="page">
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
+        <div style={{fontSize:13,color:var_muted}}>Showing <b style={{color:var_text}}>{fw.length}</b> workstreams · <b style={{color:var_text}}>{fi.length}</b> intake requests</div>
+        <div className="time-tabs">
+          {TIME_OPTS.map(t=><div key={t.label} className={`time-tab${timeKey===t.label?' active':''}`} onClick={()=>setTimeKey(t.label)}>{t.label}</div>)}
+        </div>
+      </div>
+      <div className="stats-grid">
+        <div className="stat-card"><div className="stat-label">Active Workstreams</div><div className="stat-value" style={{color:'var(--accent)'}}>{activeW}</div><div className="stat-sub">{totalW} total in period</div></div>
+        <div className="stat-card"><div className="stat-label">Blocked</div><div className="stat-value" style={{color:'var(--s-blocked)'}}>{blockedW}</div><div className="stat-sub">of {totalW} workstreams</div></div>
+        <div className="stat-card"><div className="stat-label">Intake Accepted</div><div className="stat-value" style={{color:'var(--s-complete)'}}>{accI}</div><div className="stat-sub">{totalI} total received</div></div>
+        <div className="stat-card"><div className="stat-label">Pending Review</div><div className="stat-value" style={{color:'var(--med)'}}>{pendI}</div><div className="stat-sub">{rejI} rejected</div></div>
+      </div>
+      <div className="dash-grid">
+        <div className="card"><div className="card-header"><span className="card-title">By Priority</span></div><div className="card-body"><BarChart data={byPriority} max={maxP}/></div></div>
+        <div className="card"><div className="card-header"><span className="card-title">By Status</span></div><div className="card-body"><BarChart data={byStatus} max={maxS}/></div></div>
+        <div className="card"><div className="card-header"><span className="card-title">By Team</span></div><div className="card-body"><BarChart data={byTeam} max={maxT}/></div></div>
+        <div className="card"><div className="card-header"><span className="card-title">By Bucket</span></div><div className="card-body"><BarChart data={byBucket} max={maxB}/></div></div>
+      </div>
+    </div>
+  );
+}
+
+// ── SETTINGS ─────────────────────────────────────────────────────────────────
+function SettingsList({ label, items, onChange, colorFn, note }) {
+  const [editIdx, setEditIdx] = useState(null);
+  const [editVal, setEditVal] = useState('');
+  const [newVal,  setNewVal]  = useState('');
+  function startEdit(i){ setEditIdx(i); setEditVal(items[i]); }
+  function saveEdit(i){ if(editVal.trim()){ const a=[...items]; a[i]=editVal.trim(); onChange(a); } setEditIdx(null); }
+  function del(i){ onChange(items.filter((_,idx)=>idx!==i)); }
+  function add(){ if(!newVal.trim()) return; onChange([...items,newVal.trim()]); setNewVal(''); }
+  function moveUp(i){ if(i===0) return; const a=[...items]; [a[i-1],a[i]]=[a[i],a[i-1]]; onChange(a); }
+  function moveDown(i){ if(i===items.length-1) return; const a=[...items]; [a[i],a[i+1]]=[a[i+1],a[i]]; onChange(a); }
+  return (
+    <div className="card" style={{marginBottom:0}}>
+      <div className="card-header"><span className="card-title">{label}</span><span style={{fontSize:11,color:'var(--muted)'}}>{items.length} items</span></div>
+      <div className="card-body" style={{padding:'12px 14px'}}>
+        {items.map((item,i)=>(
+          <div key={i} style={{display:'flex',alignItems:'center',gap:6,padding:'5px 0',borderBottom:'1px solid var(--border)'}}>
+            {colorFn&&<span className={`badge ${colorFn(item)}`} style={{minWidth:12,height:12,padding:0,borderRadius:'50%',flexShrink:0}}/>}
+            {editIdx===i ? (
+              <input autoFocus value={editVal} onChange={e=>setEditVal(e.target.value)}
+                onBlur={()=>saveEdit(i)} onKeyDown={e=>{if(e.key==='Enter')saveEdit(i);if(e.key==='Escape')setEditIdx(null);}}
+                style={{flex:1,fontSize:13,border:'1px solid var(--accent)',borderRadius:4,padding:'3px 7px',outline:'none',fontFamily:'inherit'}}/>
+            ) : (
+              <span style={{flex:1,fontSize:13,color:'var(--text)',cursor:'text',padding:'3px 0'}} onClick={()=>startEdit(i)}>{item}</span>
+            )}
+            <div style={{display:'flex',gap:2,flexShrink:0}}>
+              <button onClick={()=>moveUp(i)} style={{border:'none',background:'none',cursor:'pointer',color:'var(--muted)',fontSize:12,padding:'2px 4px',lineHeight:1}}>↑</button>
+              <button onClick={()=>moveDown(i)} style={{border:'none',background:'none',cursor:'pointer',color:'var(--muted)',fontSize:12,padding:'2px 4px',lineHeight:1}}>↓</button>
+              <button onClick={()=>startEdit(i)} style={{border:'none',background:'none',cursor:'pointer',color:'var(--muted)',fontSize:12,padding:'2px 5px',lineHeight:1}}>✎</button>
+              <button onClick={()=>del(i)} style={{border:'none',background:'none',cursor:'pointer',color:'#dc2626',fontSize:13,padding:'2px 5px',lineHeight:1,fontWeight:600}}>×</button>
+            </div>
+          </div>
+        ))}
+        <div style={{display:'flex',gap:6,marginTop:10}}>
+          <input value={newVal} onChange={e=>setNewVal(e.target.value)} onKeyDown={e=>e.key==='Enter'&&add()}
+            placeholder={`Add new ${label.toLowerCase()}...`}
+            style={{flex:1,fontSize:13,border:'1px solid var(--border)',borderRadius:5,padding:'6px 9px',outline:'none',fontFamily:'inherit'}}/>
+          <button className="btn btn-primary btn-sm" onClick={add}>+ Add</button>
+        </div>
+        {note&&<div style={{fontSize:11,color:'var(--muted)',marginTop:8,fontStyle:'italic'}}>{note}</div>}
+      </div>
+    </div>
+  );
+}
+
+function SettingsPage() {
+  const { settings, updateList } = useS();
+  return (
+    <div className="page">
+      <div style={{maxWidth:900}}>
+        <div style={{fontSize:13,color:'var(--muted)',marginBottom:20}}>Click any value to rename it. Use ↑↓ to reorder. Changes apply immediately throughout the app.</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}>
+          <SettingsList label="Priorities" items={settings.priorities} onChange={v=>updateList('priorities',v)}
+            note="High/Medium/Low/Not Yet have fixed badge colors."
+            colorFn={p=>({High:'b-high',Medium:'b-medium',Low:'b-low','Not Yet':'b-notyet'}[p]||'b-notyet')}/>
+          <SettingsList label="Statuses" items={settings.statuses} onChange={v=>updateList('statuses',v)}
+            colorFn={s=>({Active:'b-active','On Hold':'b-hold',Blocked:'b-blocked',Complete:'b-complete'}[s]||'b-hold')}/>
+          <SettingsList label="Teams" items={settings.teams} onChange={v=>updateList('teams',v)}/>
+          <SettingsList label="Complexity" items={settings.complexities} onChange={v=>updateList('complexities',v)}
+            note="Complexity is pre-filled by AI on intake, but always editable."/>
+        </div>
+        <SettingsList label="Buckets (Kanban Columns)" items={settings.buckets} onChange={v=>updateList('buckets',v)}
+          note="Bucket order defines the left-to-right column order in Kanban view."/>
+      </div>
+    </div>
+  );
+}
+
+// ── APP ───────────────────────────────────────────────────────────────────────
+const DEFAULT_SETTINGS = {
+  priorities:   ['High','Medium','Low','Not Yet'],
+  statuses:     ['Active','On Hold','Blocked','Complete'],
+  teams:        ['All','Executive','Ops','Finance','Marketing','Supply Chain','Field Ops','Internal Dev'],
+  complexities: ['Low','Medium','High'],
+  buckets:      ['Internal Review / Scoping','Work-in-Progress / Active Dev','Backlog [Reviewed, On Hold]','End-User / Acceptance Testing','Push to DEV/Prod'],
+};
+// Kept for migration: if SharePoint is empty on first run, we pull localStorage data
+function loadStorage(){ try{ return JSON.parse(localStorage.getItem('mtg-grid')||'{}'); }catch{ return {}; } }
+
+function App() {
+  const [ready,    setReady]    = useState(false);   // true after MSAL init
+  const [account,  setAccount]  = useState(null);    // signed-in MSAL account
+  const spItemId   = useRef(null);                   // SharePoint list item ID
+  const synced     = useRef(false);                  // true after first SP load completes
+  const saveTimer  = useRef(null);
+
+  const [page,     setPage]     = useState('working');
+  const [working,  setWorking]  = useState(WORKING_SEED);
+  const [intake,   setIntake]   = useState(INTAKE_SEED);
+  const [toast,    setToast]    = useState(null);
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+
+  // Load SharePoint data and apply to state; falls back to localStorage for migration
+  async function loadAndApply() {
+    const sp = await spLoad();
+    const ls = loadStorage();
+    const hasSpData = sp._itemId !== undefined && sp._itemId !== null;
+    setWorking( (hasSpData ? sp.working   : ls.working)  || WORKING_SEED);
+    setIntake(  (hasSpData ? sp.intake    : ls.intake)   || INTAKE_SEED);
+    setSettings((hasSpData ? sp.settings  : ls.settings) || DEFAULT_SETTINGS);
+    spItemId.current = hasSpData ? sp._itemId : null;
+    // Allow auto-save after React commits the state updates above
+    setTimeout(() => { synced.current = true; }, 150);
+  }
+
+  // On mount: handle any pending MSAL redirect, then check for existing session
+  useEffect(() => {
+    (async () => {
+      try { await _msalApp.handleRedirectPromise(); } catch {}
+      const accts = _msalApp.getAllAccounts();
+      if (accts.length > 0) {
+        setAccount(accts[0]);
+        await loadAndApply();
+      }
+      setReady(true);
+    })();
+  }, []);
+
+  // Debounced auto-save to SharePoint whenever data changes (2s after last change)
+  useEffect(() => {
+    if (!synced.current) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(async () => {
+      const newId = await spSave(spItemId.current, { working, intake, settings });
+      if (newId && !spItemId.current) spItemId.current = newId;
+    }, 2000);
+    return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
+  }, [working, intake, settings]);
+
+  async function signIn() {
+    try {
+      await _msalApp.loginPopup({ scopes: [`${_spHost}/.default`] });
+      const accts = _msalApp.getAllAccounts();
+      if (accts.length > 0) {
+        setAccount(accts[0]);
+        await loadAndApply();
+      }
+    } catch(e) { alert('Sign-in failed: ' + (e.message || 'Please try again.')); }
+  }
+
+  function updateList(key,val){ setSettings(s=>({...s,[key]:val})); }
+  function showToast(msg){ setToast(msg); setTimeout(()=>setToast(null),2400); }
+  function onUpdateWorking(updated){ setWorking(ws=>ws.map(w=>w.id===updated.id?updated:w)); }
+  function onAddWorking(item){ setWorking(ws=>[...ws,item]); }
+  function onAcceptIntake(item,priority,notes){
+    setIntake(ii=>ii.map(i=>i.id===item.id?{...i,status:'Accepted'}:i));
+    const noteArr=notes?.trim()?[{text:notes.trim(),ts:fmtTs()}]:[];
+    setWorking(ws=>[...ws,{id:'w_'+item.id,name:item.name,team:item.team,priority,status:'Active',next_step:'',ball_in_court:item.requestor||'',bucket:'Internal Review / Scoping',complexity:item.complexity||'TBD',requestor:item.requestor,source:item.source,notes:noteArr,flags:item.flags||[],blockedBy:[],rationale:item.rationale,date_accepted:new Date().toISOString().slice(0,10)}]);
+  }
+  function onRejectIntake(item){ setIntake(ii=>ii.map(i=>i.id===item.id?{...i,status:'Rejected'}:i)); }
+  function onAddIntake(item){ setIntake(ii=>[item,...ii]); }
+  const pendingCount = intake.filter(i=>i.status==='Pending').length;
+
+  // ── LOADING SCREEN ────────────────────────────────────────────────────────
+  if (!ready) return (
+    <div style={{display:'flex',height:'100vh',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:12,background:'var(--bg)'}}>
+      <GRIDMark size={64}/>
+      <div style={{fontSize:22,fontWeight:900,color:'#9db800',letterSpacing:'1px',fontFamily:"'Arial Black',Impact,sans-serif"}}>GRID</div>
+      <div style={{fontSize:13,color:'var(--muted)',marginTop:4}}>Connecting…</div>
+    </div>
+  );
+
+  // ── SIGN-IN SCREEN ────────────────────────────────────────────────────────
+  if (!account) return (
+    <div style={{display:'flex',height:'100vh',alignItems:'center',justifyContent:'center',background:'var(--bg)'}}>
+      <div style={{background:'var(--surface)',borderRadius:12,border:'1px solid var(--border)',padding:'44px 52px',display:'flex',flexDirection:'column',alignItems:'center',gap:10,boxShadow:'0 8px 32px rgba(0,0,0,.1)',maxWidth:340,width:'100%',textAlign:'center'}}>
+        <GRIDMark size={64}/>
+        <div style={{fontSize:24,fontWeight:900,color:'#9db800',letterSpacing:'1px',fontFamily:"'Arial Black',Impact,sans-serif",marginTop:2}}>GRID</div>
+        <div style={{fontSize:10,color:'var(--muted)',letterSpacing:'.5px',textTransform:'uppercase'}}>Governance · Reporting · Insights · Data</div>
+        <div style={{fontSize:13,color:'var(--muted)',lineHeight:1.6,marginTop:8}}>Sign in with your Microsoft account to access the shared team workspace.</div>
+        <button className="btn btn-primary" style={{width:'100%',justifyContent:'center',marginTop:12,padding:'10px 0',fontSize:14,gap:10}} onClick={signIn}>
+          <svg width="16" height="16" viewBox="0 0 22 22" fill="none" style={{flexShrink:0}}>
+            <rect width="10" height="10" fill="#f35325"/><rect x="12" width="10" height="10" fill="#81bc06"/>
+            <rect y="12" width="10" height="10" fill="#05a6f0"/><rect x="12" y="12" width="10" height="10" fill="#ffba08"/>
+          </svg>
+          Sign in with Microsoft
+        </button>
+      </div>
+    </div>
+  );
+
+  // ── MAIN APP ──────────────────────────────────────────────────────────────
+  return (
+    <SettingsCtx.Provider value={{settings,updateList}}>
+      <div style={{display:'flex',width:'100%',minHeight:'100vh'}}>
+        <aside className="sidebar">
+          <div className="sidebar-logo">
+            <div className="logo-mark">
+              <GRIDMark size={52}/>
+              <div style={{paddingLeft:4}}>
+                <div style={{fontSize:26,fontWeight:900,color:'#9db800',letterSpacing:'1px',lineHeight:1,fontFamily:"'Arial Black',Impact,sans-serif"}}>GRID</div>
+                <div style={{fontSize:9,color:'var(--sidebar-text)',marginTop:4,letterSpacing:'.3px',lineHeight:1.4}}>Governance · Reporting<br/>Insights · Data</div>
+              </div>
+            </div>
+          </div>
+          <nav className="sidebar-nav">
+            <div className={`nav-item${page==='intake'?' active':''}`} onClick={()=>setPage('intake')}>
+              <Ico.Intake/> Intake
+              {pendingCount>0&&<span className="nav-badge">{pendingCount}</span>}
+            </div>
+            <div className={`nav-item${page==='working'?' active':''}`} onClick={()=>setPage('working')}><Ico.Working/> Working</div>
+            <div className={`nav-item${page==='dashboard'?' active':''}`} onClick={()=>setPage('dashboard')}><Ico.Dash/> Dashboard</div>
+          </nav>
+          <div style={{padding:'0 8px 10px'}}>
+            <div className={`nav-item${page==='settings'?' active':''}`} onClick={()=>setPage('settings')} style={{marginBottom:0}}>
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
+              Settings
+            </div>
+          </div>
+          <div className="sidebar-foot" style={{display:'flex',flexDirection:'column',gap:4}}>
+            <div style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--sidebar-text)',fontSize:11,maxWidth:190}}>{account.name||account.username}</div>
+            <button onClick={()=>{ _msalApp.logoutPopup(); setAccount(null); synced.current=false; }} style={{background:'none',border:'none',color:'#4a6070',cursor:'pointer',fontSize:10,padding:0,textAlign:'left'}}>Sign out</button>
+          </div>
+        </aside>
+        <div className="main">
+          <div className="topbar">
+            <div className="topbar-title">{page==='intake'?'Intake':page==='working'?'Working':page==='dashboard'?'Dashboard':'Settings'}</div>
+            <div className="topbar-actions"><span className="dot-live"/>Shared · SharePoint</div>
+          </div>
+          <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}}>
+            {page==='intake'    &&<IntakePage  intake={intake}   onAccept={onAcceptIntake} onReject={onRejectIntake} onAdd={onAddIntake}   showToast={showToast}/>}
+            {page==='working'   &&<WorkingPage working={working} onUpdate={onUpdateWorking} onAdd={onAddWorking}    showToast={showToast}/>}
+            {page==='dashboard' &&<DashboardPage working={working} intake={intake}/>}
+            {page==='settings'  &&<SettingsPage/>}
+          </div>
+        </div>
+      </div>
+      {toast&&<Toast msg={toast} onDone={()=>setToast(null)}/>}
+    </SettingsCtx.Provider>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
