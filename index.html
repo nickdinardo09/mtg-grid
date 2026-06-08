@@ -1146,7 +1146,7 @@ function App() {
         setReady(true);
         return;
       }
-      try { await Promise.race([_msalApp.handleRedirectPromise(), new Promise(r=>setTimeout(r,3000))]); } catch {}
+      // Popup-only flow — no redirect to handle
       const accts = _msalApp.getAllAccounts();
       if (accts.length > 0) {
         setAccount(accts[0]);
