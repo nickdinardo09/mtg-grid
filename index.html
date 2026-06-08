@@ -217,24 +217,31 @@ td{padding:11px 13px;vertical-align:middle}
 // ── SHAREPOINT CONFIG ─────────────────────────────────────────────────────────
 // ⚠️  Fill in these 4 values before sharing (see setup guide in Downloads)
 const SP_CONFIG = {
-  tenantId:  'fb336b50-6771-4ed3-b52c-49b0e8679d49',     // Azure AD tenant ID (GUID)
-  clientId:  'bda3bbdb-f0f2-4ccb-83f8-9ca29f8bb995',     // Azure AD app client ID (GUID)
-  siteUrl:   'https://ltpholdco.sharepoint.com/sites/MTGDataWarehouseProject',
+  tenantId:  'YOUR_TENANT_ID',     // Azure AD tenant ID (GUID)
+  clientId:  'YOUR_CLIENT_ID',     // Azure AD app client ID (GUID)
+  siteUrl:   'https://YOURTENANT.sharepoint.com/sites/YOURSITE',
   listName:  'GRID_Data',          // SharePoint list name — create this first
 };
 
-const _spHost   = new URL(SP_CONFIG.siteUrl).origin;
-const _msalApp  = new msal.PublicClientApplication({
-  auth: {
-    clientId:    SP_CONFIG.clientId,
-    authority:   `https://login.microsoftonline.com/${SP_CONFIG.tenantId}`,
-    redirectUri: window.location.origin + window.location.pathname,
-  },
-  cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false },
-});
+const IS_FILE   = window.location.protocol === 'file:';
+const _spHost   = IS_FILE ? '' : new URL(SP_CONFIG.siteUrl).origin;
+let   _msalApp  = null;
+if (!IS_FILE) {
+  try {
+    _msalApp = new msal.PublicClientApplication({
+      auth: {
+        clientId:    SP_CONFIG.clientId,
+        authority:   `https://login.microsoftonline.com/${SP_CONFIG.tenantId}`,
+        redirectUri: window.location.origin + window.location.pathname,
+      },
+      cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false },
+    });
+  } catch(e) { console.warn('MSAL init failed:', e); }
+}
 
 // Silently acquire a SharePoint bearer token (popup fallback)
 async function _spToken() {
+  if (IS_FILE || !_msalApp) return null;
   const accts = _msalApp.getAllAccounts();
   if (!accts.length) return null;
   const req = { scopes: [`${_spHost}/.default`], account: accts[0] };
@@ -1126,9 +1133,19 @@ function App() {
     setTimeout(() => { synced.current = true; }, 150);
   }
 
-  // On mount: handle any pending MSAL redirect, then check for existing session
+  // On mount: local file → localStorage only; hosted → MSAL + SharePoint
   useEffect(() => {
     (async () => {
+      if (IS_FILE) {
+        const ls = loadStorage();
+        if (ls.working)  setWorking(ls.working);
+        if (ls.intake)   setIntake(ls.intake);
+        if (ls.settings) setSettings(ls.settings);
+        setAccount({ name: 'Local', username: 'local' });
+        setTimeout(() => { synced.current = true; }, 150);
+        setReady(true);
+        return;
+      }
       try { await _msalApp.handleRedirectPromise(); } catch {}
       const accts = _msalApp.getAllAccounts();
       if (accts.length > 0) {
@@ -1139,9 +1156,13 @@ function App() {
     })();
   }, []);
 
-  // Debounced auto-save to SharePoint whenever data changes (2s after last change)
+  // Auto-save: localStorage when running locally, SharePoint when hosted
   useEffect(() => {
     if (!synced.current) return;
+    if (IS_FILE) {
+      try { localStorage.setItem('mtg-grid', JSON.stringify({ working, intake, settings })); } catch {}
+      return;
+    }
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
       const newId = await spSave(spItemId.current, { working, intake, settings });
@@ -1231,14 +1252,14 @@ function App() {
             </div>
           </div>
           <div className="sidebar-foot" style={{display:'flex',flexDirection:'column',gap:4}}>
-            <div style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--sidebar-text)',fontSize:11,maxWidth:190}}>{account.name||account.username}</div>
-            <button onClick={()=>{ _msalApp.logoutPopup(); setAccount(null); synced.current=false; }} style={{background:'none',border:'none',color:'#4a6070',cursor:'pointer',fontSize:10,padding:0,textAlign:'left'}}>Sign out</button>
+            <div style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--sidebar-text)',fontSize:11,maxWidth:190}}>{IS_FILE ? 'Local mode' : (account.name||account.username)}</div>
+            {!IS_FILE && <button onClick={()=>{ _msalApp.logoutPopup(); setAccount(null); synced.current=false; }} style={{background:'none',border:'none',color:'#4a6070',cursor:'pointer',fontSize:10,padding:0,textAlign:'left'}}>Sign out</button>}
           </div>
         </aside>
         <div className="main">
           <div className="topbar">
             <div className="topbar-title">{page==='intake'?'Intake':page==='working'?'Working':page==='dashboard'?'Dashboard':'Settings'}</div>
-            <div className="topbar-actions"><span className="dot-live"/>Shared · SharePoint</div>
+            <div className="topbar-actions"><span className="dot-live"/>{IS_FILE ? 'Local' : 'Shared · SharePoint'}</div>
           </div>
           <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}}>
             {page==='intake'    &&<IntakePage  intake={intake}   onAccept={onAcceptIntake} onReject={onRejectIntake} onAdd={onAddIntake}   showToast={showToast}/>}
