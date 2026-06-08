@@ -1119,10 +1119,44 @@ function SettingsList({ label, items, onChange, colorFn, note }) {
 
 function SettingsPage() {
   const { settings, updateList } = useS();
+  const [importErr, setImportErr] = useState('');
+  function exportData() {
+    const data = JSON.parse(localStorage.getItem('mtg-grid')||'{}');
+    const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = 'grid-data-export.json'; a.click();
+  }
+  function importData(e) {
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (!data.working && !data.intake) { setImportErr('Invalid file — expected grid-data-export.json'); return; }
+        localStorage.setItem('mtg-grid', JSON.stringify(data));
+        setImportErr('');
+        alert('Data imported! The page will reload to apply it.');
+        window.location.reload();
+      } catch { setImportErr('Could not parse file. Make sure it is a valid grid-data-export.json.'); }
+    };
+    reader.readAsText(file);
+  }
   return (
     <div className="page">
       <div style={{maxWidth:900}}>
         <div style={{fontSize:13,color:'var(--muted)',marginBottom:20}}>Click any value to rename it. Use ↑↓ to reorder. Changes apply immediately throughout the app.</div>
+        <div className="card" style={{marginBottom:16,padding:'14px 18px',display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+          <div style={{flex:1}}>
+            <div style={{fontSize:12,fontWeight:600,marginBottom:2}}>Data Export / Import</div>
+            <div style={{fontSize:11,color:'var(--muted)'}}>Export your data to a file, then import it on another device or after switching backends.</div>
+            {importErr && <div style={{fontSize:11,color:'var(--high)',marginTop:4}}>{importErr}</div>}
+          </div>
+          <button className="btn btn-ghost btn-sm" onClick={exportData}>⬇ Export data</button>
+          <label className="btn btn-ghost btn-sm" style={{cursor:'pointer'}}>
+            ⬆ Import data
+            <input type="file" accept=".json" style={{display:'none'}} onChange={importData}/>
+          </label>
+        </div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}>
           <SettingsList label="Priorities" items={settings.priorities} onChange={v=>updateList('priorities',v)}
             note="High/Medium/Low/Not Yet have fixed badge colors."
