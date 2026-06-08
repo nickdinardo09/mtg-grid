@@ -252,11 +252,13 @@ async function doSignIn() {
   const { v, c } = await _pkceGen();
   const state = Math.random().toString(36).slice(2);
   sessionStorage.setItem('pkce_v', v); sessionStorage.setItem('pkce_s', state);
-  const scope = encodeURIComponent(`${_spHost}/.default openid profile`);
-  const authUrl = `https://login.microsoftonline.com/${SP_CONFIG.tenantId}/oauth2/v2.0/authorize` +
-    `?client_id=${SP_CONFIG.clientId}&response_type=code` +
-    `&redirect_uri=${encodeURIComponent(_redirectUri)}&scope=${scope}` +
-    `&state=${state}&code_challenge=${c}&code_challenge_method=S256&prompt=select_account`;
+  const scope = encodeURIComponent(_spHost + '/.default openid profile');
+  const redir = encodeURIComponent(_redirectUri);
+  const authUrl = 'https://login.microsoftonline.com/' + SP_CONFIG.tenantId + '/oauth2/v2.0/authorize' +
+    '?client_id=' + SP_CONFIG.clientId + '&response_type=code' +
+    '&redirect_uri=' + redir + '&scope=' + scope +
+    '&state=' + state + '&code_challenge=' + c + '&code_challenge_method=S256&prompt=select_account';
+  console.log('Auth URL redirect_uri:', _redirectUri);
   const popup = window.open(authUrl, 'mslogin', 'width=520,height=640,left=200,top=80');
   if (!popup) throw new Error('Popup was blocked — please allow popups for this site.');
   const code = await new Promise((res, rej) => {
