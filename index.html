@@ -1136,23 +1136,27 @@ function App() {
   // On mount: local file → localStorage only; hosted → MSAL + SharePoint
   useEffect(() => {
     (async () => {
-      if (IS_FILE) {
-        const ls = loadStorage();
-        if (ls.working)  setWorking(ls.working);
-        if (ls.intake)   setIntake(ls.intake);
-        if (ls.settings) setSettings(ls.settings);
-        setAccount({ name: 'Local', username: 'local' });
-        setTimeout(() => { synced.current = true; }, 150);
+      try {
+        if (IS_FILE) {
+          const ls = loadStorage();
+          if (ls.working)  setWorking(ls.working);
+          if (ls.intake)   setIntake(ls.intake);
+          if (ls.settings) setSettings(ls.settings);
+          setAccount({ name: 'Local', username: 'local' });
+          setTimeout(() => { synced.current = true; }, 150);
+          return;
+        }
+        if (!_msalApp) return;
+        const accts = _msalApp.getAllAccounts();
+        if (accts.length > 0) {
+          setAccount(accts[0]);
+          await loadAndApply();
+        }
+      } catch(e) {
+        console.error('GRID init error:', e);
+      } finally {
         setReady(true);
-        return;
       }
-      // Popup-only flow — no redirect to handle
-      const accts = _msalApp.getAllAccounts();
-      if (accts.length > 0) {
-        setAccount(accts[0]);
-        await loadAndApply();
-      }
-      setReady(true);
     })();
   }, []);
 
