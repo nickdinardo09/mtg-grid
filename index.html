@@ -7,7 +7,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
-<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
 <style>
 :root {
   --bg:#f0f2f5; --surface:#fff; --border:#e2e8f0;
@@ -215,37 +214,86 @@ td{padding:11px 13px;vertical-align:middle}
 <script type="text/babel">
 
 // ── SHAREPOINT CONFIG ─────────────────────────────────────────────────────────
-// ⚠️  Fill in these 4 values before sharing (see setup guide in Downloads)
 const SP_CONFIG = {
-  tenantId:  'YOUR_TENANT_ID',     // Azure AD tenant ID (GUID)
-  clientId:  'YOUR_CLIENT_ID',     // Azure AD app client ID (GUID)
-  siteUrl:   'https://YOURTENANT.sharepoint.com/sites/YOURSITE',
-  listName:  'GRID_Data',          // SharePoint list name — create this first
+  tenantId: 'fb336b50-6771-4ed3-b52c-49b0e8679d49',
+  clientId: 'bda3bbdb-f0f2-4ccb-83f8-9ca29f8bb995',
+  siteUrl:  'https://ltpholdco.sharepoint.com/sites/MTGDataWarehouseProject',
+  listName: 'GRID_Data',
 };
+const IS_FILE      = window.location.protocol === 'file:';
+const IS_AUTH_POPUP = !IS_FILE && !!window.opener &&
+  (new URLSearchParams(window.location.search).has('code') ||
+   new URLSearchParams(window.location.search).has('error'));
+const _spHost      = IS_FILE ? '' : new URL(SP_CONFIG.siteUrl).origin;
+const _redirectUri = window.location.href.split('?')[0].split('#')[0];
 
-const IS_FILE   = window.location.protocol === 'file:';
-const _spHost   = IS_FILE ? '' : new URL(SP_CONFIG.siteUrl).origin;
-let   _msalApp  = null;
-if (!IS_FILE) {
+// ── PKCE OAUTH2 AUTH (no MSAL — works in any JS context) ─────────────────────
+let _accessToken = null, _tokenExpiry = 0, _userInfo = null;
+
+function _loadStoredToken() {
   try {
-    _msalApp = new msal.PublicClientApplication({
-      auth: {
-        clientId:    SP_CONFIG.clientId,
-        authority:   `https://login.microsoftonline.com/${SP_CONFIG.tenantId}`,
-        redirectUri: window.location.href.split('?')[0].split('#')[0],
-      },
-    });
-  } catch(e) { console.error('MSAL init error:', e); }
+    const s = JSON.parse(sessionStorage.getItem('grid_auth') || 'null');
+    if (s && s.expiry > Date.now() + 120000) {
+      _accessToken = s.token; _tokenExpiry = s.expiry; _userInfo = s.user; return true;
+    }
+  } catch {}
+  return false;
 }
 
-// Silently acquire a SharePoint bearer token (popup fallback)
+async function _pkceGen() {
+  const arr = new Uint8Array(32); crypto.getRandomValues(arr);
+  const v = btoa(String.fromCharCode(...arr)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(v));
+  const c = btoa(String.fromCharCode(...new Uint8Array(d))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+  return { v, c };
+}
+
+async function doSignIn() {
+  const { v, c } = await _pkceGen();
+  const state = Math.random().toString(36).slice(2);
+  sessionStorage.setItem('pkce_v', v); sessionStorage.setItem('pkce_s', state);
+  const scope = encodeURIComponent(`${_spHost}/.default openid profile`);
+  const authUrl = `https://login.microsoftonline.com/${SP_CONFIG.tenantId}/oauth2/v2.0/authorize` +
+    `?client_id=${SP_CONFIG.clientId}&response_type=code` +
+    `&redirect_uri=${encodeURIComponent(_redirectUri)}&scope=${scope}` +
+    `&state=${state}&code_challenge=${c}&code_challenge_method=S256&prompt=select_account`;
+  const popup = window.open(authUrl, 'mslogin', 'width=520,height=640,left=200,top=80');
+  if (!popup) throw new Error('Popup was blocked — please allow popups for this site.');
+  const code = await new Promise((res, rej) => {
+    const t = setInterval(() => {
+      try {
+        if (popup.closed) { clearInterval(t); rej(new Error('Sign-in window was closed.')); return; }
+        const pu = popup.location.href;
+        if (pu.startsWith(window.location.origin)) {
+          clearInterval(t); popup.close();
+          const p = new URLSearchParams(new URL(pu).search);
+          if (p.get('error')) { rej(new Error(p.get('error_description')||p.get('error'))); return; }
+          res(p.get('code'));
+        }
+      } catch(e) { /* popup on Microsoft domain — keep polling */ }
+    }, 300);
+  });
+  const tr = await fetch(
+    `https://login.microsoftonline.com/${SP_CONFIG.tenantId}/oauth2/v2.0/token`,
+    { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({ client_id:SP_CONFIG.clientId, grant_type:'authorization_code',
+        code, redirect_uri:_redirectUri, code_verifier:sessionStorage.getItem('pkce_v'),
+        scope:`${_spHost}/.default openid profile` }) }
+  );
+  const tk = await tr.json();
+  if (tk.error) throw new Error(tk.error_description || tk.error);
+  _accessToken = tk.access_token;
+  _tokenExpiry = Date.now() + tk.expires_in * 1000;
+  try {
+    const id = JSON.parse(atob(tk.id_token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
+    _userInfo = { name: id.name||id.preferred_username||'User', username: id.preferred_username||'' };
+  } catch { _userInfo = { name:'User', username:'' }; }
+  try { sessionStorage.setItem('grid_auth', JSON.stringify({token:_accessToken,expiry:_tokenExpiry,user:_userInfo})); } catch {}
+}
+
 async function _spToken() {
-  if (IS_FILE || !_msalApp) return null;
-  const accts = _msalApp.getAllAccounts();
-  if (!accts.length) return null;
-  const req = { scopes: [`${_spHost}/.default`], account: accts[0] };
-  try { return (await _msalApp.acquireTokenSilent(req)).accessToken; }
-  catch { return (await _msalApp.acquireTokenPopup(req)).accessToken; }
+  if (IS_FILE) return null;
+  return _accessToken;
 }
 
 // Read the single GRID_Data list item from SharePoint
@@ -1132,7 +1180,7 @@ function App() {
     setTimeout(() => { synced.current = true; }, 150);
   }
 
-  // On mount: local file → localStorage only; hosted → MSAL + SharePoint
+  // On mount: local → localStorage; hosted → check stored token
   useEffect(() => {
     (async () => {
       try {
@@ -1145,10 +1193,8 @@ function App() {
           setTimeout(() => { synced.current = true; }, 150);
           return;
         }
-        if (!_msalApp) return;
-        const accts = _msalApp.getAllAccounts();
-        if (accts.length > 0) {
-          setAccount(accts[0]);
+        if (_loadStoredToken()) {
+          setAccount(_userInfo);
           await loadAndApply();
         }
       } catch(e) {
@@ -1175,14 +1221,10 @@ function App() {
   }, [working, intake, settings]);
 
   async function signIn() {
-    if (!_msalApp) { alert('MSAL failed to initialize. Check the browser console (F12) for the error.'); return; }
     try {
-      await _msalApp.loginPopup({ scopes: [`${_spHost}/.default`] });
-      const accts = _msalApp.getAllAccounts();
-      if (accts.length > 0) {
-        setAccount(accts[0]);
-        await loadAndApply();
-      }
+      await doSignIn();
+      setAccount(_userInfo);
+      await loadAndApply();
     } catch(e) { alert('Sign-in failed: ' + (e.message || 'Please try again.')); }
   }
 
@@ -1257,7 +1299,7 @@ function App() {
           </div>
           <div className="sidebar-foot" style={{display:'flex',flexDirection:'column',gap:4}}>
             <div style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--sidebar-text)',fontSize:11,maxWidth:190}}>{IS_FILE ? 'Local mode' : (account.name||account.username)}</div>
-            {!IS_FILE && <button onClick={()=>{ _msalApp.logoutPopup(); setAccount(null); synced.current=false; }} style={{background:'none',border:'none',color:'#4a6070',cursor:'pointer',fontSize:10,padding:0,textAlign:'left'}}>Sign out</button>}
+            {!IS_FILE && <button onClick={()=>{ _accessToken=null; _userInfo=null; try{sessionStorage.removeItem('grid_auth');}catch{} setAccount(null); synced.current=false; }} style={{background:'none',border:'none',color:'#4a6070',cursor:'pointer',fontSize:10,padding:0,textAlign:'left'}}>Sign out</button>}
           </div>
         </aside>
         <div className="main">
@@ -1278,7 +1320,7 @@ function App() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+if (!IS_AUTH_POPUP) ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
 </body>
 </html>
