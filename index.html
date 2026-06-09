@@ -224,6 +224,14 @@ const IS_FILE      = window.location.protocol === 'file:';
 const _spHost      = IS_FILE ? '' : new URL(SP_CONFIG.siteUrl).origin;
 const _redirectUri = window.location.href.split('?')[0].split('#')[0];
 
+// Test localStorage availability once at startup
+let _lsOk = false;
+try {
+  localStorage.setItem('__grid_test__', '1');
+  localStorage.removeItem('__grid_test__');
+  _lsOk = true;
+} catch(e) { _lsOk = false; }
+
 // ── PKCE OAUTH2 AUTH — redirect flow (no popup complexity) ───────────────────
 let _accessToken = null, _tokenExpiry = 0, _userInfo = null;
 
@@ -313,20 +321,20 @@ async function spLoad() {
 // Write/create the single GRID_Data list item
 async function spSave(itemId, payload) {
   const token = await _spToken();
-  if (!token) return null;
-  const body  = JSON.stringify({ AppData: JSON.stringify(payload) });
-  const base  = `${SP_CONFIG.siteUrl}/_api/web/lists/getbytitle('${SP_CONFIG.listName}')/items`;
-  const hdrs  = { Authorization: `Bearer ${token}`, Accept: 'application/json;odata=nometadata', 'Content-Type': 'application/json;odata=nometadata' };
-  try {
-    if (itemId) {
-      await fetch(`${base}(${itemId})`, { method: 'POST', headers: { ...hdrs, 'If-Match': '*', 'X-HTTP-Method': 'MERGE' }, body });
-      return itemId;
-    } else {
-      const res = await fetch(base, { method: 'POST', headers: hdrs, body });
-      const d   = await res.json();
-      return d.Id || null;
-    }
-  } catch(e) { console.error('spSave failed', e); return itemId; }
+  if (!token) throw new Error('No auth token — please sign out and sign in again.');
+  const body = JSON.stringify({ AppData: JSON.stringify(payload) });
+  const base = SP_CONFIG.siteUrl + "/_api/web/lists/getbytitle('" + SP_CONFIG.listName + "')/items";
+  const hdrs = { Authorization: 'Bearer ' + token, Accept: 'application/json;odata=nometadata', 'Content-Type': 'application/json;odata=nometadata' };
+  if (itemId) {
+    const r = await fetch(base + '(' + itemId + ')', { method:'POST', headers:{ ...hdrs, 'If-Match':'*', 'X-HTTP-Method':'MERGE' }, body });
+    if (!r.ok) { const t = await r.text(); throw new Error('SharePoint save error ' + r.status + ': ' + t.slice(0,120)); }
+    return itemId;
+  } else {
+    const r = await fetch(base, { method:'POST', headers:hdrs, body });
+    if (!r.ok) { const t = await r.text(); throw new Error('SharePoint create error ' + r.status + ': ' + t.slice(0,120)); }
+    const d = await r.json();
+    return d.Id || null;
+  }
 }
 
 const { useState, useMemo, useRef, useEffect } = React;
@@ -647,12 +655,31 @@ function IntakeDrawer({ item, onClose, onAccept, onReject }) {
             <div><div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'.5px',color:'var(--muted)',marginBottom:4}}>Received</div><div style={{fontSize:13}}>{item.date_received}</div></div>
             <div><div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'.5px',color:'var(--muted)',marginBottom:4}}>Est. Complexity</div><div style={{fontSize:13}}>{item.complexity} <span style={{fontSize:10,color:var_accent,fontWeight:700}}>⚡ AI</span></div></div>
           </div>
-          <div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'.5px',color:'var(--muted)',marginBottom:5}}>Request</div>
-          <div style={{background:'#f8fafc',border:'1px solid var(--border)',borderRadius:5,padding:'9px 12px',fontSize:12,color:'var(--muted)',marginBottom:14,lineHeight:1.6}}>{item.raw}</div>
-          <div className="ai-box">
-            <div className="ai-box-lbl">⚡ AI Priority Rationale</div>
-            <div style={{fontSize:13,color:var_text,lineHeight:1.5}}>{item.rationale}</div>
-          </div>
+          {item.description && <>
+            <div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'.5px',color:'var(--muted)',marginBottom:5}}>What They Need</div>
+            <div style={{background:'#f8fafc',border:'1px solid var(--border)',borderRadius:5,padding:'9px 12px',fontSize:13,color:'var(--text)',marginBottom:12,lineHeight:1.6}}>{item.description}</div>
+          </>}
+          {item.justification && <>
+            <div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'.5px',color:'var(--muted)',marginBottom:5}}>Why / Business Impact</div>
+            <div style={{background:'#f8fafc',border:'1px solid var(--border)',borderRadius:5,padding:'9px 12px',fontSize:13,color:'var(--text)',marginBottom:12,lineHeight:1.6}}>{item.justification}</div>
+          </>}
+          {item.success && <>
+            <div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'.5px',color:'var(--muted)',marginBottom:5}}>Success Criteria</div>
+            <div style={{background:'#f8fafc',border:'1px solid var(--border)',borderRadius:5,padding:'9px 12px',fontSize:13,color:'var(--text)',marginBottom:12,lineHeight:1.6}}>{item.success}</div>
+          </>}
+          {(item.data_sources||item.frequency||item.deadline||item.stakeholders) && (
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
+              {item.deadline&&<div><div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'.5px',color:'var(--muted)',marginBottom:3}}>Deadline</div><div style={{fontSize:13}}>{item.deadline}</div></div>}
+              {item.frequency&&<div><div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'.5px',color:'var(--muted)',marginBottom:3}}>Frequency</div><div style={{fontSize:13}}>{item.frequency}</div></div>}
+              {item.data_sources&&<div style={{gridColumn:'span 2'}}><div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'.5px',color:'var(--muted)',marginBottom:3}}>Data Sources</div><div style={{fontSize:13}}>{item.data_sources}</div></div>}
+              {item.stakeholders&&<div style={{gridColumn:'span 2'}}><div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'.5px',color:'var(--muted)',marginBottom:3}}>Other Stakeholders</div><div style={{fontSize:13}}>{item.stakeholders}</div></div>}
+            </div>
+          )}
+          {item.rationale && <div className="ai-box"><div className="ai-box-lbl">⚡ Priority Rationale</div><div style={{fontSize:13,color:var_text,lineHeight:1.5}}>{item.rationale}</div></div>}
+          {!item.description && item.raw && <>
+            <div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'.5px',color:'var(--muted)',marginBottom:5}}>Request</div>
+            <div style={{background:'#f8fafc',border:'1px solid var(--border)',borderRadius:5,padding:'9px 12px',fontSize:12,color:'var(--muted)',marginBottom:14,lineHeight:1.6}}>{item.raw}</div>
+          </>}
           {(item.flags||[]).length>0 && (
             <div className="flag-box">
               <div style={{fontSize:10,fontWeight:700,color:'#92400e',textTransform:'uppercase',marginBottom:5}}>⚠️ Flags</div>
@@ -682,111 +709,160 @@ function IntakeDrawer({ item, onClose, onAccept, onReject }) {
   );
 }
 
-// ── NEW INTAKE MODAL ─────────────────────────────────────────────────────────
+// ── NEW INTAKE MODAL (end-user focused) ──────────────────────────────────────
 function NewIntakeModal({ onClose, onAdd, showToast }) {
   const { settings } = useS();
-  const [step, setStep]       = useState('paste');
-  const [raw, setRaw]         = useState('');
-  const [source, setSource]   = useState('Email');
-  const [apiKey, setApiKey]   = useState(()=>{ try{ return localStorage.getItem('mtg-api-key')||''; }catch{ return ''; } });
-  const [parsing, setParsing] = useState(false);
-  const [parseErr, setParseErr] = useState('');
-  const [fields, setFields]   = useState({ name:'', requestor:'', team:'Ops', priority:'Medium', complexity:'Medium', rationale:'', flags:[] });
-  const [flagInput, setFlagInput] = useState('');
-  function setF(k,v){ setFields(f=>({...f,[k]:v})); }
+  const FREQ = ['Select one…','One-time','Daily','Weekly','Monthly','Quarterly','As needed'];
+  const PRIORITY_OPTS = [
+    { val:'High',   label:'🔴  Critical — needed ASAP or blocking work' },
+    { val:'Medium', label:'🟡  High — needed soon, within 2–4 weeks' },
+    { val:'Low',    label:'🟢  Medium — needed within a month or two' },
+    { val:'Not Yet',label:'⚪  Low / Nice to have — no hard deadline' },
+  ];
+  const [f, setF] = useState({
+    name:'', requestor:'', team:'', description:'', justification:'',
+    success:'', priority:'Medium', deadline:'', frequency:'', data_sources:'', stakeholders:'',
+  });
+  const set = (k,v) => setF(x=>({...x,[k]:v}));
+  const required = f.name.trim() && f.requestor.trim() && f.team.trim() && f.description.trim() && f.justification.trim();
 
-  async function parse() {
-    if (!raw.trim()||!apiKey.trim()) return;
-    setParsing(true); setParseErr('');
-    try { localStorage.setItem('mtg-api-key', apiKey.trim()); } catch {}
-    const prompt = `You are parsing a stakeholder request for the analytics/data team at Master Trades Group. Extract the following fields and return ONLY valid JSON with no markdown or extra text.\n\nFields:\n- name: short descriptive project title (5-10 words)\n- requestor: the requesting person's name if mentioned, or null\n- team: best match from [Executive, Ops, Finance, Marketing, Supply Chain, Field Ops, Internal Dev, All]\n- priority: one of [High, Medium, Low, Not Yet]\n- complexity: one of [Low, Medium, High]\n- rationale: 1-2 sentences explaining why you chose that priority\n- flags: array of strings for any dependencies or concerns (empty array if none)\n\nMessage:\n${raw}\n\nReturn only valid JSON.`;
-    try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method:'POST',
-        headers:{'Content-Type':'application/json','x-api-key':apiKey.trim(),'anthropic-version':'2023-06-01','anthropic-dangerous-allow-browser':'true'},
-        body: JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:512, messages:[{role:'user',content:prompt}] }),
-      });
-      if (!res.ok) { const e=await res.json().catch(()=>({})); throw new Error(e.error?.message||`API error ${res.status}`); }
-      const data = await res.json();
-      const text = (data.content[0]?.text||'{}').replace(/```json\n?|\n?```/g,'').trim();
-      const p = JSON.parse(text);
-      setFields({ name:p.name||'', requestor:p.requestor||'', team:p.team||'Ops', priority:p.priority||'Medium', complexity:p.complexity||'Medium', rationale:p.rationale||'', flags:Array.isArray(p.flags)?p.flags:[] });
-      setStep('review');
-    } catch(e) { setParseErr(e.message||'Parse failed. Check your API key.'); }
-    finally { setParsing(false); }
-  }
-
-  function addFlag(){ if(!flagInput.trim()) return; setF('flags',[...fields.flags,flagInput.trim()]); setFlagInput(''); }
-  function removeFlag(i){ setF('flags',fields.flags.filter((_,idx)=>idx!==i)); }
   function save(){
-    if(!fields.name.trim()) return;
-    onAdd({ id:'i_'+Date.now(), name:fields.name.trim(), source, requestor:fields.requestor||null, team:fields.team, raw:raw.trim(), priority:fields.priority, rationale:fields.rationale, flags:fields.flags, complexity:fields.complexity, date_received:new Date().toISOString().slice(0,10), status:'Pending' });
-    showToast('Request added to intake queue'); onClose();
+    if(!required) return;
+    const raw = [
+      'What: ' + f.description,
+      'Why: ' + f.justification,
+      f.success ? 'Success: ' + f.success : '',
+      f.frequency ? 'Frequency: ' + f.frequency : '',
+      f.data_sources ? 'Data sources: ' + f.data_sources : '',
+      f.stakeholders ? 'Stakeholders: ' + f.stakeholders : '',
+      f.deadline ? 'Deadline: ' + f.deadline : '',
+    ].filter(Boolean).join(' | ');
+    onAdd({
+      id: 'i_' + Date.now(), name: f.name.trim(), requestor: f.requestor.trim(),
+      team: f.team, description: f.description.trim(), justification: f.justification.trim(),
+      success: f.success.trim(), priority: f.priority, deadline: f.deadline,
+      frequency: f.frequency, data_sources: f.data_sources.trim(),
+      stakeholders: f.stakeholders.trim(), raw, source:'Portal',
+      complexity:'TBD', rationale:'', flags:[],
+      date_received: new Date().toISOString().slice(0,10), status:'Pending',
+    });
+    showToast('Request submitted — thank you!'); onClose();
   }
+
+  const labelStyle = {fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'.5px',color:'var(--muted)',marginBottom:4,display:'block'};
+  const reqStar = <span style={{color:'var(--high)',marginLeft:2}}>*</span>;
+  const hint = (t) => <div style={{fontSize:11,color:'var(--muted)',marginTop:3}}>{t}</div>;
 
   return (
     <div className="drawer-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div className="drawer">
-        <div className="drawer-header">
+      <div className="drawer" style={{width:600}}>
+        <div className="drawer-header" style={{background:'linear-gradient(135deg,#0d1e2d 0%,#1a3045 100%)'}}>
           <div style={{flex:1}}>
-            <div style={{fontSize:15,fontWeight:700}}>New Intake Request</div>
-            <div style={{fontSize:12,color:var_muted,marginTop:3}}>{step==='paste'?'Paste the email or Teams message below':'Review and edit AI-parsed fields'}</div>
+            <div style={{fontSize:16,fontWeight:800,color:'#fff',letterSpacing:'.3px'}}>Submit a Data Request</div>
+            <div style={{fontSize:12,color:'#8ba3b8',marginTop:3}}>Fill out the form below and we'll review your request shortly.</div>
           </div>
-          <button className="btn btn-ghost btn-sm" onClick={onClose}><Ico.Close/></button>
+          <button className="btn btn-ghost btn-sm" style={{color:'#8ba3b8',border:'1px solid #1a3045'}} onClick={onClose}><Ico.Close/></button>
         </div>
+
         <div className="drawer-body">
-          {step==='paste' ? (
-            <>
-              <div className="field" style={{marginBottom:14}}>
-                <label>Source</label>
-                <select value={source} onChange={e=>setSource(e.target.value)}><option>Email</option><option>Teams</option></select>
-              </div>
-              <div className="field" style={{marginBottom:14}}>
-                <label>Paste email / Teams message</label>
-                <textarea value={raw} onChange={e=>setRaw(e.target.value)} placeholder="Paste the full message here…" style={{minHeight:180,resize:'vertical'}}/>
-              </div>
-              <div className="field" style={{marginBottom:5}}>
-                <label>Claude API Key <span style={{fontWeight:400,textTransform:'none',letterSpacing:0,fontSize:10}}>(required — saved locally)</span></label>
-                <input type="password" value={apiKey} onChange={e=>setApiKey(e.target.value)} placeholder="sk-ant-api03-…"/>
-              </div>
-              <div style={{fontSize:11,color:var_muted,marginBottom:14}}>Get a key at <b>console.anthropic.com</b> → API Keys.</div>
-              {parseErr && <div style={{background:'#fef2f2',border:'1px solid var(--high-border)',borderRadius:'var(--radius)',padding:'9px 12px',fontSize:12,color:'var(--high)',marginBottom:12}}>⚠️ {parseErr}</div>}
-            </>
-          ) : (
-            <>
-              <div className="field" style={{marginBottom:14}}><label>Request Title</label><input value={fields.name} onChange={e=>setF('name',e.target.value)}/></div>
-              <div className="field-grid" style={{marginBottom:14}}>
-                <div className="field"><label>Requestor</label><input value={fields.requestor||''} onChange={e=>setF('requestor',e.target.value)} placeholder="Name"/></div>
-                <div className="field"><label>Team</label><select value={fields.team} onChange={e=>setF('team',e.target.value)}>{settings.teams.map(t=><option key={t}>{t}</option>)}</select></div>
-                <div className="field"><label>Priority</label><select value={fields.priority} onChange={e=>setF('priority',e.target.value)}>{settings.priorities.map(p=><option key={p}>{p}</option>)}</select></div>
-                <div className="field"><label>Complexity</label><select value={fields.complexity} onChange={e=>setF('complexity',e.target.value)}>{settings.complexities.map(c=><option key={c}>{c}</option>)}</select></div>
-              </div>
-              <div className="field" style={{marginBottom:14}}><label>AI Rationale</label><textarea value={fields.rationale} onChange={e=>setF('rationale',e.target.value)} style={{minHeight:70,resize:'vertical'}}/></div>
-              {fields.flags.length>0 && (
-                <div className="flag-box" style={{marginBottom:12}}>
-                  <div style={{fontSize:10,fontWeight:700,color:'#92400e',textTransform:'uppercase',marginBottom:6}}>⚠️ Flags</div>
-                  {fields.flags.map((f,i)=>(
-                    <div key={i} style={{display:'flex',alignItems:'center',gap:6,marginBottom:3}}>
-                      <span style={{flex:1,fontSize:12,color:'#92400e'}}>• {f}</span>
-                      <button onClick={()=>removeFlag(i)} style={{border:'none',background:'none',cursor:'pointer',color:'#dc2626',fontSize:14,fontWeight:700}}>×</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className="dep-add" style={{marginBottom:12}}>
-                <input value={flagInput} onChange={e=>setFlagInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addFlag()} placeholder="Add a flag or dependency…"/>
-                <button className="btn btn-ghost btn-sm" onClick={addFlag}>+ Flag</button>
-              </div>
-              <div style={{background:'#f8fafc',border:'1px solid var(--border)',borderRadius:5,padding:'8px 11px',fontSize:11,color:var_muted,lineHeight:1.5,maxHeight:72,overflow:'auto'}}><b>Raw:</b> {raw}</div>
-            </>
-          )}
+
+          {/* Section 1 */}
+          <div style={{fontSize:11,fontWeight:800,color:'var(--accent)',textTransform:'uppercase',letterSpacing:'.8px',marginBottom:12}}>About Your Request</div>
+
+          <div className="field" style={{marginBottom:14}}>
+            <label style={labelStyle}>Request Title {reqStar}</label>
+            <input autoFocus value={f.name} onChange={e=>set('name',e.target.value)}
+              placeholder="e.g. Q2 Sales Dashboard by Region"/>
+            {hint('Give your request a short, descriptive name')}
+          </div>
+
+          <div className="field-grid" style={{marginBottom:14}}>
+            <div className="field">
+              <label style={labelStyle}>Your Name {reqStar}</label>
+              <input value={f.requestor} onChange={e=>set('requestor',e.target.value)} placeholder="First and last name"/>
+            </div>
+            <div className="field">
+              <label style={labelStyle}>Your Team / Department {reqStar}</label>
+              <select value={f.team} onChange={e=>set('team',e.target.value)}>
+                <option value="">Select a team…</option>
+                {settings.teams.filter(t=>t!=='All').map(t=><option key={t}>{t}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Section 2 */}
+          <div style={{fontSize:11,fontWeight:800,color:'var(--accent)',textTransform:'uppercase',letterSpacing:'.8px',margin:'20px 0 12px'}}>What You Need</div>
+
+          <div className="field" style={{marginBottom:14}}>
+            <label style={labelStyle}>What are you looking for? {reqStar}</label>
+            <textarea value={f.description} onChange={e=>set('description',e.target.value)}
+              placeholder="Describe the report, dashboard, or data you need. Be as specific as possible — include filters, time ranges, breakdowns, etc."
+              style={{minHeight:90,resize:'vertical'}}/>
+          </div>
+
+          <div className="field" style={{marginBottom:14}}>
+            <label style={labelStyle}>Why do you need it? {reqStar}</label>
+            <textarea value={f.justification} onChange={e=>set('justification',e.target.value)}
+              placeholder="What business decision or problem does this support? Who else benefits from this?"
+              style={{minHeight:70,resize:'vertical'}}/>
+          </div>
+
+          <div className="field" style={{marginBottom:14}}>
+            <label style={labelStyle}>What does success look like? <span style={{fontWeight:400,textTransform:'none',letterSpacing:0}}>(optional)</span></label>
+            <textarea value={f.success} onChange={e=>set('success',e.target.value)}
+              placeholder="How will you know this is complete? What will you do with it once it's built?"
+              style={{minHeight:60,resize:'vertical'}}/>
+          </div>
+
+          {/* Section 3 */}
+          <div style={{fontSize:11,fontWeight:800,color:'var(--accent)',textTransform:'uppercase',letterSpacing:'.8px',margin:'20px 0 12px'}}>Logistics</div>
+
+          <div className="field" style={{marginBottom:14}}>
+            <label style={labelStyle}>Priority {reqStar}</label>
+            {PRIORITY_OPTS.map(o=>(
+              <label key={o.val} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 10px',marginBottom:4,borderRadius:6,border:`1px solid ${f.priority===o.val?'var(--accent)':'var(--border)'}`,background:f.priority===o.val?'var(--accent-light)':'transparent',cursor:'pointer',fontSize:13}}>
+                <input type="radio" name="priority" value={o.val} checked={f.priority===o.val} onChange={()=>set('priority',o.val)} style={{accentColor:'var(--accent)'}}/>
+                {o.label}
+              </label>
+            ))}
+          </div>
+
+          <div className="field-grid" style={{marginBottom:14}}>
+            <div className="field">
+              <label style={labelStyle}>Target deadline <span style={{fontWeight:400,textTransform:'none',letterSpacing:0}}>(optional)</span></label>
+              <input type="date" value={f.deadline} onChange={e=>set('deadline',e.target.value)}/>
+            </div>
+            <div className="field">
+              <label style={labelStyle}>How often will you use this?</label>
+              <select value={f.frequency} onChange={e=>set('frequency',e.target.value)}>
+                {FREQ.map(o=><option key={o} value={o==='Select one…'?'':o}>{o}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Section 4 */}
+          <div style={{fontSize:11,fontWeight:800,color:'var(--accent)',textTransform:'uppercase',letterSpacing:'.8px',margin:'20px 0 12px'}}>Context <span style={{fontWeight:400,color:'var(--muted)',textTransform:'none',letterSpacing:0,fontSize:11}}>(optional — helps us scope faster)</span></div>
+
+          <div className="field" style={{marginBottom:14}}>
+            <label style={labelStyle}>Data sources / systems you think are involved</label>
+            <input value={f.data_sources} onChange={e=>set('data_sources',e.target.value)}
+              placeholder="e.g. Netsuite, Workday, Fivetran, Excel exports…"/>
+          </div>
+
+          <div className="field" style={{marginBottom:6}}>
+            <label style={labelStyle}>Other stakeholders to notify</label>
+            <input value={f.stakeholders} onChange={e=>set('stakeholders',e.target.value)}
+              placeholder="Names of anyone else who should be kept in the loop"/>
+          </div>
+
         </div>
-        <div className="drawer-footer">
-          {step==='paste' ? (
-            <><button className="btn btn-primary" onClick={parse} disabled={!raw.trim()||!apiKey.trim()||parsing}>{parsing?'⏳ Parsing…':'⚡ Parse with AI →'}</button><button className="btn btn-ghost btn-sm" style={{marginLeft:'auto'}} onClick={onClose}>Cancel</button></>
-          ) : (
-            <><button className="btn btn-primary" onClick={save} disabled={!fields.name.trim()}>+ Add to Intake</button><button className="btn btn-ghost btn-sm" onClick={()=>setStep('paste')}>← Back</button><button className="btn btn-ghost btn-sm" style={{marginLeft:'auto'}} onClick={onClose}>Cancel</button></>
-          )}
+
+        <div className="drawer-footer" style={{flexDirection:'column',gap:8}}>
+          {!required && <div style={{fontSize:11,color:'var(--muted)'}}>Fields marked <span style={{color:'var(--high)'}}>*</span> are required.</div>}
+          <div style={{display:'flex',gap:8,width:'100%'}}>
+            <button className="btn btn-primary" style={{flex:1,justifyContent:'center'}} onClick={save} disabled={!required}>Submit Request →</button>
+            <button className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1129,15 +1205,21 @@ function SettingsPage() {
   function importData(e) {
     const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       try {
         const data = JSON.parse(ev.target.result);
         if (!data.working && !data.intake) { setImportErr('Invalid file — expected grid-data-export.json'); return; }
-        localStorage.setItem('mtg-grid', JSON.stringify(data));
+        // Save directly to SharePoint (not just localStorage)
+        if (!IS_FILE) {
+          const newId = await spSave(spItemId.current, data);
+          if (newId && !spItemId.current) spItemId.current = newId;
+        } else {
+          localStorage.setItem('mtg-grid', JSON.stringify(data));
+        }
         setImportErr('');
         alert('Data imported! The page will reload to apply it.');
         window.location.reload();
-      } catch { setImportErr('Could not parse file. Make sure it is a valid grid-data-export.json.'); }
+      } catch(err) { setImportErr('Import failed: ' + (err.message || 'Check console for details.')); }
     };
     reader.readAsText(file);
   }
@@ -1197,6 +1279,7 @@ function App() {
   const [intake,   setIntake]   = useState(INTAKE_SEED);
   const [toast,    setToast]    = useState(null);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [saveStatus, setSaveStatus] = useState('');
 
   // Load SharePoint data and apply to state; falls back to localStorage for migration
   async function loadAndApply() {
@@ -1246,13 +1329,29 @@ function App() {
   useEffect(() => {
     if (!synced.current) return;
     if (IS_FILE) {
-      try { localStorage.setItem('mtg-grid', JSON.stringify({ working, intake, settings })); } catch {}
+      if (!_lsOk) { setSaveStatus('ls_blocked'); return; }
+      try {
+        localStorage.setItem('mtg-grid', JSON.stringify({ working, intake, settings }));
+        setSaveStatus('saved');
+        setTimeout(() => setSaveStatus(''), 2000);
+      } catch(e) {
+        console.error('localStorage save failed:', e);
+        setSaveStatus('ls_blocked');
+      }
       return;
     }
     if (saveTimer.current) clearTimeout(saveTimer.current);
+    setSaveStatus('saving');
     saveTimer.current = setTimeout(async () => {
-      const newId = await spSave(spItemId.current, { working, intake, settings });
-      if (newId && !spItemId.current) spItemId.current = newId;
+      try {
+        const newId = await spSave(spItemId.current, { working, intake, settings });
+        if (newId && !spItemId.current) spItemId.current = newId;
+        setSaveStatus('saved');
+        setTimeout(() => setSaveStatus(''), 2000);
+      } catch(e) {
+        console.error('Save failed:', e);
+        setSaveStatus('error');
+      }
     }, 2000);
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
   }, [working, intake, settings]);
@@ -1339,7 +1438,14 @@ function App() {
         <div className="main">
           <div className="topbar">
             <div className="topbar-title">{page==='intake'?'Intake':page==='working'?'Working':page==='dashboard'?'Dashboard':'Settings'}</div>
-            <div className="topbar-actions"><span className="dot-live"/>{IS_FILE ? 'Local' : 'Shared · SharePoint'}</div>
+            <div className="topbar-actions">
+              <span className="dot-live"/>
+              {IS_FILE ? 'Local' : 'Shared · SharePoint'}
+              {saveStatus==='saving'     && <span style={{fontSize:11,color:'var(--muted)',marginLeft:8}}>Saving…</span>}
+              {saveStatus==='saved'      && <span style={{fontSize:11,color:'var(--s-complete)',marginLeft:8}}>✓ Saved</span>}
+              {saveStatus==='error'      && <span style={{fontSize:11,color:'var(--high)',marginLeft:8}}>⚠ Save failed — check console</span>}
+              {saveStatus==='ls_blocked' && <span style={{fontSize:11,color:'var(--high)',marginLeft:8}}>⚠ localStorage blocked — changes won't persist. Open in Chrome or Edge.</span>}
+            </div>
           </div>
           <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}}>
             {page==='intake'    &&<IntakePage  intake={intake}   onAccept={onAcceptIntake} onReject={onRejectIntake} onAdd={onAddIntake}   showToast={showToast}/>}
