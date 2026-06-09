@@ -263,7 +263,7 @@ async function doSignIn() {
   const authUrl = 'https://login.microsoftonline.com/' + SP_CONFIG.tenantId + '/oauth2/v2.0/authorize' +
     '?client_id=' + SP_CONFIG.clientId + '&response_type=code' +
     '&redirect_uri=' + redir + '&scope=' + scope +
-    '&state=' + state + '&code_challenge=' + c + '&code_challenge_method=S256&prompt=select_account';
+    '&state=' + state + '&code_challenge=' + c + '&code_challenge_method=S256&prompt=consent';
   window.location.href = authUrl;
 }
 
