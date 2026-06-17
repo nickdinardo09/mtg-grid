@@ -96,6 +96,22 @@ td{padding:11px 13px;vertical-align:middle}
 .b-complete{background:#f0fdf4;color:var(--s-complete);border:1px solid #bbf7d0}
 .b-accepted{background:#f0fdf4;color:var(--s-complete);border:1px solid #bbf7d0}
 .b-rejected{background:#fef2f2;color:var(--high);border:1px solid var(--high-border)}
+/* Owner badges */
+.owner-badge{display:inline-flex;align-items:center;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;white-space:nowrap}
+.owner-0{background:#dbeafe;color:#1d4ed8;border:1px solid #bfdbfe}
+.owner-1{background:#f3e8ff;color:#7c3aed;border:1px solid #e9d5ff}
+.owner-2{background:#fce7f3;color:#be185d;border:1px solid #fbcfe8}
+.owner-3{background:#dcfce7;color:#166534;border:1px solid #bbf7d0}
+.owner-4{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa}
+.owner-x{background:#f1f5f9;color:#475569;border:1px solid #e2e8f0}
+/* In/Out toggle */
+.ball-toggle{display:inline-flex;border-radius:6px;border:1px solid var(--border);overflow:hidden;font-size:12px;font-weight:700}
+.ball-btn{padding:5px 13px;cursor:pointer;background:transparent;border:none;font-size:12px;font-weight:700;font-family:inherit;transition:all .1s;color:var(--muted)}
+.ball-btn.ball-in-active{background:#f0fdf4;color:#16a34a}
+.ball-btn.ball-out-active{background:#fffbeb;color:#d97706}
+.ball-badge{display:inline-flex;align-items:center;border-radius:5px;padding:3px 9px;font-size:11px;font-weight:700;border:1px solid}
+.ball-badge-in{background:#f0fdf4;color:#16a34a;border-color:#bbf7d0}
+.ball-badge-out{background:#fffbeb;color:#d97706;border-color:#fde68a}
 
 /* Buttons */
 .btn{display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border-radius:var(--radius);font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all .15s;white-space:nowrap}
@@ -224,6 +240,15 @@ const IS_FILE      = window.location.protocol === 'file:';
 const _spHost      = IS_FILE ? '' : new URL(SP_CONFIG.siteUrl).origin;
 const _redirectUri = window.location.href.split('?')[0].split('#')[0];
 
+// Form mode: ?form in URL persisted across OAuth redirect via sessionStorage
+if (!IS_FILE && new URLSearchParams(window.location.search).has('form')) {
+  try { sessionStorage.setItem('grid_form_mode','1'); } catch {}
+}
+const IS_FORM = !IS_FILE && (
+  new URLSearchParams(window.location.search).has('form') ||
+  (new URLSearchParams(window.location.search).has('code') && sessionStorage.getItem('grid_form_mode')==='1')
+);
+
 // Test localStorage availability once at startup
 let _lsOk = false;
 try {
@@ -341,26 +366,26 @@ const { useState, useMemo, useRef, useEffect } = React;
 
 // ── SEED DATA ────────────────────────────────────────────────────────────────
 const WORKING_SEED = [
-  { id:'w1',  name:'Monthly Operating Review',        team:'All',          priority:'High',   status:'Active',  next_step:'Get unified hierarchies wired into MOR report',       ball_in_court:'Accordion', bucket:'Internal Review / Scoping',     complexity:'High',   requestor:null,     source:'Email', notes:[], flags:['Blocked by Unified Hierarchies'], blockedBy:['Unified Hierarchies'], rationale:'Affects all teams, exec-sponsored, no workaround until unified hierarchies are done.', date_accepted:'2025-03-10' },
-  { id:'w2',  name:'Unified Hierarchies',             team:'All',          priority:'High',   status:'Active',  next_step:'Accordion to develop unified hierarchy structure',      ball_in_court:'Accordion', bucket:'Work-in-Progress / Active Dev',  complexity:'High',   requestor:'Liz',    source:'Email', notes:[], flags:[], blockedBy:[], rationale:'Cross-functional dependency — blocks MOR, MDM, and Master Data work.', date_accepted:'2025-03-10' },
-  { id:'w3',  name:'Sales Dashboard',                 team:'Executive',    priority:'High',   status:'Active',  next_step:'Share latest version with team on Thursday',           ball_in_court:'Nick',      bucket:'Work-in-Progress / Active Dev',  complexity:'Medium', requestor:'Dave M', source:'Email', notes:[], flags:[], blockedBy:[], rationale:'Executive-requested by Dave M, revenue-visibility impact.', date_accepted:'2025-03-10' },
-  { id:'w4',  name:'Product Mix & Category',          team:'Executive',    priority:'High',   status:'Active',  next_step:'Accordion to develop',                                 ball_in_court:'Accordion', bucket:'Internal Review / Scoping',     complexity:'Medium', requestor:'Dave M', source:'Teams', notes:[], flags:[], blockedBy:[], rationale:'Executive-requested, revenue analytics, clear scope defined.', date_accepted:'2025-03-12' },
-  { id:'w5',  name:'PACE',                            team:'Ops',          priority:'High',   status:'Active',  next_step:'Provide access to champions',                          ball_in_court:'RGMs',      bucket:'Internal Review / Scoping',     complexity:'Medium', requestor:null,     source:'Email', notes:[], flags:[], blockedBy:[], rationale:'Ops-critical, time-sensitive, clear next step identified.', date_accepted:'2025-03-14' },
-  { id:'w6',  name:'Missing Sales Jobs',              team:'Ops',          priority:'High',   status:'Active',  next_step:'Mel and Steve to review and confirm',                  ball_in_court:'Mel, Steve',bucket:'Internal Review / Scoping',     complexity:'Low',    requestor:null,     source:'Email', notes:[], flags:[], blockedBy:[], rationale:'Data quality issue affecting sales reporting accuracy.', date_accepted:'2025-03-14' },
-  { id:'w7',  name:'Regional Drop Down Filter (CEO)', team:'Executive',    priority:'High',   status:'Active',  next_step:'Scope consistent filtering solution with Accordion',   ball_in_court:'Accordion', bucket:'Internal Review / Scoping',     complexity:'Medium', requestor:'Dave M', source:'Teams', notes:[], flags:['Needs review — flagged by stakeholder'], blockedBy:[], rationale:'Executive-requested, cross-functional reporting impact, flagged for review.', date_accepted:'2025-03-17' },
-  { id:'w8',  name:'MKTG Spend',                      team:'Marketing',    priority:'Medium', status:'Active',  next_step:'Review with Accordion during next status call',        ball_in_court:'Accordion', bucket:'Internal Review / Scoping',     complexity:'Medium', requestor:null,     source:'Teams', notes:[], flags:[], blockedBy:[], rationale:'Single department, clear owner, no hard deadline.', date_accepted:'2025-03-20' },
-  { id:'w9',  name:'Global Hierarchy Revenue Check',  team:'Finance',      priority:'Medium', status:'Active',  next_step:'Liz to verify whether figures are incorrect',           ball_in_court:'Finance',   bucket:'Internal Review / Scoping',     complexity:'Low',    requestor:'Julia',  source:'Email', notes:[], flags:[], blockedBy:[], rationale:'Finance accuracy check, moderate urgency, waiting on Liz confirmation.', date_accepted:'2025-03-20' },
-  { id:'w10', name:'Memberships',                     team:'Marketing',    priority:'Medium', status:'Active',  next_step:'Nick to review latest from Accordion on Thursday',     ball_in_court:'Nick',      bucket:'Internal Review / Scoping',     complexity:'Low',    requestor:null,     source:'Teams', notes:[], flags:[], blockedBy:[], rationale:'Marketing enhancement, time already blocked for review.', date_accepted:'2025-03-22' },
-  { id:'w11', name:'RDD',                             team:'Marketing',    priority:'Medium', status:'Active',  next_step:'Nick to build based on latest from Jenny',             ball_in_court:'Nick',      bucket:'Internal Review / Scoping',     complexity:'Medium', requestor:'Jenny',  source:'Email', notes:[], flags:[], blockedBy:[], rationale:'Marketing reporting, owner identified, clear timeline.', date_accepted:'2025-03-22' },
-  { id:'w12', name:'Netsuite Rebuild',                team:'Finance',      priority:'Low',    status:'On Hold', next_step:'Meeting with SCH on Thursday for final proposal',      ball_in_court:'SCH',       bucket:'Backlog [Reviewed, On Hold]',    complexity:'High',   requestor:null,     source:'Email', notes:[], flags:[], blockedBy:[], rationale:'Finance-only, longer-term rebuild, external vendor dependency.', date_accepted:'2025-03-25' },
-  { id:'w13', name:'Metrics Unpivot',                 team:'Internal Dev', priority:'Low',    status:'Active',  next_step:'Slowly start to transition to new table structure',   ball_in_court:'Nick',      bucket:'Backlog [Reviewed, On Hold]',    complexity:'Medium', requestor:null,     source:'Email', notes:[], flags:[], blockedBy:[], rationale:'Internal data restructuring, no hard deadline, gradual transition.', date_accepted:'2025-03-25' },
-  { id:'w14', name:'Master Data Management',          team:'All',          priority:'Low',    status:'Blocked', next_step:'Get unified hierarchies built first',                  ball_in_court:'Accordion', bucket:'Backlog [Reviewed, On Hold]',    complexity:'High',   requestor:null,     source:'Email', notes:[], flags:['Blocked by Unified Hierarchies'], blockedBy:['Unified Hierarchies'], rationale:'Depends on unified hierarchies being completed first.', date_accepted:'2025-03-25' },
-  { id:'w15', name:'Farraday Integration',            team:'Marketing',    priority:'Low',    status:'Active',  next_step:'Meeting with Farraday team on Thursday',              ball_in_court:'Farraday',  bucket:'Backlog [Reviewed, On Hold]',    complexity:'Medium', requestor:'Luvean', source:'Teams', notes:[], flags:['Pending Fivetran clarification'], blockedBy:[], rationale:'Single team, exploratory, vendor meeting pending.', date_accepted:'2025-04-01' },
-  { id:'w16', name:'Josh Wages / Position Mapping',   team:'Ops',          priority:'Low',    status:'On Hold', next_step:'Josh to reply with positions he wants mapped',         ball_in_court:'Josh',      bucket:'Backlog [Reviewed, On Hold]',    complexity:'Low',    requestor:'Josh',   source:'Email', notes:[], flags:[], blockedBy:[], rationale:"Single stakeholder, internal Ops request, ball in Josh's court.", date_accepted:'2025-04-01' },
-  { id:'w17', name:'Inventory Templates',             team:'Supply Chain', priority:'Low',    status:'Active',  next_step:'Pull dim_sku to include base cost in templates',       ball_in_court:'Nick',      bucket:'Backlog [Reviewed, On Hold]',    complexity:'Low',    requestor:null,     source:'Teams', notes:[], flags:[], blockedBy:[], rationale:'Supply Chain only, no deadline stated.', date_accepted:'2025-04-05' },
-  { id:'w18', name:'Ticket Intake System',            team:'Internal Dev', priority:'Low',    status:'Active',  next_step:'Start building after meeting with Ken',                ball_in_court:'Nick',      bucket:'Backlog [Reviewed, On Hold]',    complexity:'Medium', requestor:null,     source:'Email', notes:[], flags:[], blockedBy:[], rationale:'Internal tooling, no hard deadline, owner identified.', date_accepted:'2025-04-10' },
-  { id:'w19', name:'Data Dictionary',                 team:'Internal Dev', priority:'Low',    status:'Active',  next_step:'Start building after meeting with Ken',                ball_in_court:'Nick',      bucket:'Backlog [Reviewed, On Hold]',    complexity:'Low',    requestor:null,     source:'Email', notes:[], flags:[], blockedBy:[], rationale:'Internal tooling, helpful for onboarding, no deadline.', date_accepted:'2025-04-10' },
-  { id:'w20', name:'Sage',                            team:'Internal Dev', priority:'Not Yet',status:'On Hold', next_step:'Revisit when other priorities are cleared',           ball_in_court:'Nick',      bucket:'Backlog [Reviewed, On Hold]',    complexity:'Low',    requestor:null,     source:'Email', notes:[], flags:[], blockedBy:[], rationale:'No business case, owner, or timeline stated.', date_accepted:'2025-04-15' },
+  { id:'w1',  name:'Monthly Operating Review',        team:'All',          priority:'High',   status:'Active',  next_step:'Get unified hierarchies wired into MOR report',       ball_in_court:'Accordion', ball_in:true,  owner:'Nick',  bucket:'Internal Review / Scoping',     complexity:'High',   requestor:null,     source:'Email', notes:[], flags:['Blocked by Unified Hierarchies'], blockedBy:['Unified Hierarchies'], rationale:'Affects all teams, exec-sponsored, no workaround until unified hierarchies are done.', date_accepted:'2025-03-10' },
+  { id:'w2',  name:'Unified Hierarchies',             team:'All',          priority:'High',   status:'Active',  next_step:'Accordion to develop unified hierarchy structure',      ball_in_court:'Accordion', ball_in:true,  owner:'Nick',  bucket:'Work-in-Progress / Active Dev',  complexity:'High',   requestor:'Liz',    source:'Email', notes:[], flags:[], blockedBy:[], rationale:'Cross-functional dependency — blocks MOR, MDM, and Master Data work.', date_accepted:'2025-03-10' },
+  { id:'w3',  name:'Sales Dashboard',                 team:'Executive',    priority:'High',   status:'Active',  next_step:'Share latest version with team on Thursday',           ball_in_court:'Nick',      ball_in:true,  owner:'Nick',  bucket:'Work-in-Progress / Active Dev',  complexity:'Medium', requestor:'Dave M', source:'Email', notes:[], flags:[], blockedBy:[], rationale:'Executive-requested by Dave M, revenue-visibility impact.', date_accepted:'2025-03-10' },
+  { id:'w4',  name:'Product Mix & Category',          team:'Executive',    priority:'High',   status:'Active',  next_step:'Accordion to develop',                                 ball_in_court:'Accordion', ball_in:true,  owner:'Nick',  bucket:'Internal Review / Scoping',     complexity:'Medium', requestor:'Dave M', source:'Teams', notes:[], flags:[], blockedBy:[], rationale:'Executive-requested, revenue analytics, clear scope defined.', date_accepted:'2025-03-12' },
+  { id:'w5',  name:'PACE',                            team:'Ops',          priority:'High',   status:'Active',  next_step:'Provide access to champions',                          ball_in_court:'RGMs',      ball_in:false, owner:'Nick',  bucket:'Internal Review / Scoping',     complexity:'Medium', requestor:null,     source:'Email', notes:[], flags:[], blockedBy:[], rationale:'Ops-critical, time-sensitive, clear next step identified.', date_accepted:'2025-03-14' },
+  { id:'w6',  name:'Missing Sales Jobs',              team:'Ops',          priority:'High',   status:'Active',  next_step:'Mel and Steve to review and confirm',                  ball_in_court:'Mel, Steve',ball_in:false, owner:'Nick',  bucket:'Internal Review / Scoping',     complexity:'Low',    requestor:null,     source:'Email', notes:[], flags:[], blockedBy:[], rationale:'Data quality issue affecting sales reporting accuracy.', date_accepted:'2025-03-14' },
+  { id:'w7',  name:'Regional Drop Down Filter (CEO)', team:'Executive',    priority:'High',   status:'Active',  next_step:'Scope consistent filtering solution with Accordion',   ball_in_court:'Accordion', ball_in:true,  owner:'Nick',  bucket:'Internal Review / Scoping',     complexity:'Medium', requestor:'Dave M', source:'Teams', notes:[], flags:['Needs review — flagged by stakeholder'], blockedBy:[], rationale:'Executive-requested, cross-functional reporting impact, flagged for review.', date_accepted:'2025-03-17' },
+  { id:'w8',  name:'MKTG Spend',                      team:'Marketing',    priority:'Medium', status:'Active',  next_step:'Review with Accordion during next status call',        ball_in_court:'Accordion', ball_in:false, owner:'Jenny', bucket:'Internal Review / Scoping',     complexity:'Medium', requestor:null,     source:'Teams', notes:[], flags:[], blockedBy:[], rationale:'Single department, clear owner, no hard deadline.', date_accepted:'2025-03-20' },
+  { id:'w9',  name:'Global Hierarchy Revenue Check',  team:'Finance',      priority:'Medium', status:'Active',  next_step:'Liz to verify whether figures are incorrect',           ball_in_court:'Finance',   ball_in:false, owner:'Nick',  bucket:'Internal Review / Scoping',     complexity:'Low',    requestor:'Julia',  source:'Email', notes:[], flags:[], blockedBy:[], rationale:'Finance accuracy check, moderate urgency, waiting on Liz confirmation.', date_accepted:'2025-03-20' },
+  { id:'w10', name:'Memberships',                     team:'Marketing',    priority:'Medium', status:'Active',  next_step:'Nick to review latest from Accordion on Thursday',     ball_in_court:'Nick',      ball_in:true,  owner:'Nick',  bucket:'Internal Review / Scoping',     complexity:'Low',    requestor:null,     source:'Teams', notes:[], flags:[], blockedBy:[], rationale:'Marketing enhancement, time already blocked for review.', date_accepted:'2025-03-22' },
+  { id:'w11', name:'RDD',                             team:'Marketing',    priority:'Medium', status:'Active',  next_step:'Nick to build based on latest from Jenny',             ball_in_court:'Nick',      ball_in:true,  owner:'Jenny', bucket:'Internal Review / Scoping',     complexity:'Medium', requestor:'Jenny',  source:'Email', notes:[], flags:[], blockedBy:[], rationale:'Marketing reporting, owner identified, clear timeline.', date_accepted:'2025-03-22' },
+  { id:'w12', name:'Netsuite Rebuild',                team:'Finance',      priority:'Low',    status:'On Hold', next_step:'Meeting with SCH on Thursday for final proposal',      ball_in_court:'SCH',       ball_in:false, owner:'Nick',  bucket:'Backlog [Reviewed, On Hold]',    complexity:'High',   requestor:null,     source:'Email', notes:[], flags:[], blockedBy:[], rationale:'Finance-only, longer-term rebuild, external vendor dependency.', date_accepted:'2025-03-25' },
+  { id:'w13', name:'Metrics Unpivot',                 team:'Internal Dev', priority:'Low',    status:'Active',  next_step:'Slowly start to transition to new table structure',   ball_in_court:'Nick',      ball_in:true,  owner:'Jenny', bucket:'Backlog [Reviewed, On Hold]',    complexity:'Medium', requestor:null,     source:'Email', notes:[], flags:[], blockedBy:[], rationale:'Internal data restructuring, no hard deadline, gradual transition.', date_accepted:'2025-03-25' },
+  { id:'w14', name:'Master Data Management',          team:'All',          priority:'Low',    status:'Blocked', next_step:'Get unified hierarchies built first',                  ball_in_court:'Accordion', ball_in:true,  owner:'Nick',  bucket:'Backlog [Reviewed, On Hold]',    complexity:'High',   requestor:null,     source:'Email', notes:[], flags:['Blocked by Unified Hierarchies'], blockedBy:['Unified Hierarchies'], rationale:'Depends on unified hierarchies being completed first.', date_accepted:'2025-03-25' },
+  { id:'w15', name:'Farraday Integration',            team:'Marketing',    priority:'Low',    status:'Active',  next_step:'Meeting with Farraday team on Thursday',              ball_in_court:'Farraday',  ball_in:false, owner:'Nick',  bucket:'Backlog [Reviewed, On Hold]',    complexity:'Medium', requestor:'Luvean', source:'Teams', notes:[], flags:['Pending Fivetran clarification'], blockedBy:[], rationale:'Single team, exploratory, vendor meeting pending.', date_accepted:'2025-04-01' },
+  { id:'w16', name:'Josh Wages / Position Mapping',   team:'Ops',          priority:'Low',    status:'On Hold', next_step:'Josh to reply with positions he wants mapped',         ball_in_court:'Josh',      ball_in:false, owner:'Nick',  bucket:'Backlog [Reviewed, On Hold]',    complexity:'Low',    requestor:'Josh',   source:'Email', notes:[], flags:[], blockedBy:[], rationale:"Single stakeholder, internal Ops request, ball in Josh's court.", date_accepted:'2025-04-01' },
+  { id:'w17', name:'Inventory Templates',             team:'Supply Chain', priority:'Low',    status:'Active',  next_step:'Pull dim_sku to include base cost in templates',       ball_in_court:'Nick',      ball_in:true,  owner:'Nick',  bucket:'Backlog [Reviewed, On Hold]',    complexity:'Low',    requestor:null,     source:'Teams', notes:[], flags:[], blockedBy:[], rationale:'Supply Chain only, no deadline stated.', date_accepted:'2025-04-05' },
+  { id:'w18', name:'Ticket Intake System',            team:'Internal Dev', priority:'Low',    status:'Active',  next_step:'Start building after meeting with Ken',                ball_in_court:'Nick',      ball_in:true,  owner:'Nick',  bucket:'Backlog [Reviewed, On Hold]',    complexity:'Medium', requestor:null,     source:'Email', notes:[], flags:[], blockedBy:[], rationale:'Internal tooling, no hard deadline, owner identified.', date_accepted:'2025-04-10' },
+  { id:'w19', name:'Data Dictionary',                 team:'Internal Dev', priority:'Low',    status:'Active',  next_step:'Start building after meeting with Ken',                ball_in_court:'Nick',      ball_in:true,  owner:'Nick',  bucket:'Backlog [Reviewed, On Hold]',    complexity:'Low',    requestor:null,     source:'Email', notes:[], flags:[], blockedBy:[], rationale:'Internal tooling, helpful for onboarding, no deadline.', date_accepted:'2025-04-10' },
+  { id:'w20', name:'Sage',                            team:'Internal Dev', priority:'Not Yet',status:'On Hold', next_step:'Revisit when other priorities are cleared',           ball_in_court:'Nick',      ball_in:true,  owner:'Nick',  bucket:'Backlog [Reviewed, On Hold]',    complexity:'Low',    requestor:null,     source:'Email', notes:[], flags:[], blockedBy:[], rationale:'No business case, owner, or timeline stated.', date_accepted:'2025-04-15' },
 ];
 
 const INTAKE_SEED = [
@@ -471,7 +496,7 @@ function WorkingDrawer({ item: init, onClose, onUpdate, showToast, allItems }) {
     }
   }
 
-  const isNickAction = (item.ball_in_court||'').toLowerCase().includes('nick');
+  const isNickAction = item.ball_in && item.owner === 'Nick';
 
   return (
     <div className="drawer-overlay" onClick={e => e.target===e.currentTarget && onClose()}>
@@ -519,14 +544,27 @@ function WorkingDrawer({ item: init, onClose, onUpdate, showToast, allItems }) {
               </select>
             </div>
             <div className="field">
-              <label>Ball in Court</label>
-              <input value={item.ball_in_court||''} onChange={e => set('ball_in_court', e.target.value)}
-                onBlur={() => showToast('Saved')} placeholder="Who acts next"/>
+              <label>Owner</label>
+              <select value={item.owner||''} onChange={e => set('owner', e.target.value)}>
+                <option value="">—</option>
+                {(settings.owners||DEFAULT_SETTINGS.owners).map(o=><option key={o}>{o}</option>)}
+              </select>
             </div>
             <div className="field">
               <label>Requestor</label>
               <input value={item.requestor||''} onChange={e => set('requestor', e.target.value)}
                 onBlur={() => showToast('Saved')} placeholder="—"/>
+            </div>
+          </div>
+
+          {/* Where's the Ball toggle */}
+          <div className="field" style={{marginBottom:14}}>
+            <label>Where's the Ball</label>
+            <div className="ball-toggle" style={{display:'inline-flex'}}>
+              <button className={`ball-btn${item.ball_in!==false?' ball-in-active':''}`}
+                onClick={()=>set('ball_in',true)}>← In</button>
+              <button className={`ball-btn${item.ball_in===false?' ball-out-active':''}`}
+                onClick={()=>set('ball_in',false)}>Out →</button>
             </div>
           </div>
 
@@ -894,8 +932,8 @@ function KanbanBoard({ items, onSelect, nickActionOn }) {
               <div className="kanban-col-header"><span>{BUCKET_SHORT[bucket]||bucket}</span><span className="kanban-col-cnt">{cards.length}</span></div>
               <div className="kanban-col-body">
                 {cards.map(card=>{
-                  const isNick=(card.ball_in_court||'').toLowerCase().includes('nick');
-                  const dim=nickActionOn&&!isNick;
+                  const isNickAction=card.ball_in && card.owner==='Nick';
+                  const dim=nickActionOn&&!isNickAction;
                   return (
                     <div key={card.id} className={`kanban-card${card.id===dragId?' dragging':''}${dim?' dimmed':''}`}
                       draggable={true} onDragStart={e=>onDragStart(e,card.id)} onClick={()=>!dim&&onSelect(card,false)}>
@@ -905,7 +943,10 @@ function KanbanBoard({ items, onSelect, nickActionOn }) {
                         <span className={`badge ${sClass(card.status)}`}>{card.status}</span>
                         {(card.blockedBy||[]).length>0&&<span style={{fontSize:10,color:'var(--s-blocked)'}}>🔴</span>}
                       </div>
-                      {card.ball_in_court&&<div className="kanban-card-bic"><span style={{fontSize:10}}>👤</span> {card.ball_in_court}</div>}
+                      <div style={{display:'flex',alignItems:'center',gap:5,marginTop:5}}>
+                        <span className={`ball-badge ${card.ball_in!==false?'ball-badge-in':'ball-badge-out'}`} style={{fontSize:10,padding:'1px 6px'}}>{card.ball_in!==false?'← In':'Out →'}</span>
+                        {card.owner&&<span className={`owner-badge ${ownerClass(card.owner)}`} style={{fontSize:10,padding:'1px 7px'}}>{card.owner}</span>}
+                      </div>
                     </div>
                   );
                 })}
@@ -971,7 +1012,7 @@ function IntakePage({ intake, onAccept, onReject, onAdd, showToast }) {
 // ── NEW WORKING MODAL ────────────────────────────────────────────────────────
 function NewWorkingModal({ onClose, onAdd, showToast }) {
   const { settings } = useS();
-  const [f, setF] = useState({ name:'', team:'Ops', priority:'Medium', status:'Active', next_step:'', ball_in_court:'Nick', bucket:'Internal Review / Scoping', complexity:'Medium', requestor:'', source:'Email', rationale:'' });
+  const [f, setF] = useState({ name:'', team:'Ops', priority:'Medium', status:'Active', next_step:'', ball_in_court:'', ball_in:true, owner:'Nick', bucket:'Internal Review / Scoping', complexity:'Medium', requestor:'', source:'Email', rationale:'' });
   const set = (k,v) => setF(x=>({...x,[k]:v}));
   function save(){
     if(!f.name.trim()) return;
@@ -1002,7 +1043,16 @@ function NewWorkingModal({ onClose, onAdd, showToast }) {
             <div className="field"><label>Source</label><select value={f.source} onChange={e=>set('source',e.target.value)}><option>Email</option><option>Teams</option><option>Direct</option><option>Meeting</option></select></div>
           </div>
           <div className="field" style={{marginBottom:14}}><label>Bucket</label><select value={f.bucket} onChange={e=>set('bucket',e.target.value)}>{settings.buckets.map(b=><option key={b}>{b}</option>)}</select></div>
-          <div className="field" style={{marginBottom:14}}><label>Ball in Court</label><input value={f.ball_in_court} onChange={e=>set('ball_in_court',e.target.value)} placeholder="Who's responsible right now?"/></div>
+          <div className="field-grid" style={{marginBottom:14}}>
+            <div className="field"><label>Owner</label>
+              <select value={f.owner} onChange={e=>set('owner',e.target.value)}>
+                {(settings.owners||DEFAULT_SETTINGS.owners).map(o=><option key={o}>{o}</option>)}
+              </select>
+            </div>
+            <div className="field"><label>Where's the Ball</label>
+              <div className="ball-toggle"><button className={`ball-btn${f.ball_in?' ball-in-active':''}`} onClick={()=>set('ball_in',true)}>← In</button><button className={`ball-btn${!f.ball_in?' ball-out-active':''}`} onClick={()=>set('ball_in',false)}>Out →</button></div>
+            </div>
+          </div>
           <div className="field" style={{marginBottom:14}}><label>Next Step</label><input value={f.next_step} onChange={e=>set('next_step',e.target.value)} placeholder="Immediate next action"/></div>
           <div className="field"><label>Rationale <span style={{fontWeight:400,textTransform:'none',letterSpacing:0,fontSize:10}}>(optional)</span></label><textarea value={f.rationale} onChange={e=>set('rationale',e.target.value)} style={{minHeight:70,resize:'vertical'}} placeholder="Why is this being worked?"/></div>
         </div>
@@ -1062,11 +1112,11 @@ function WorkingPage({ working, onUpdate, onAdd, showToast }) {
           {filtered.length===0 ? <div className="empty"><Ico.Working/><p>No workstreams match.</p></div> : (
             <div className="table-wrap">
               <table>
-                <thead><tr><th>Workstream</th><th>Priority</th><th>Team</th><th>Status</th><th>Next Step</th><th>Ball in Court</th><th>Bucket</th></tr></thead>
+                <thead><tr><th>Workstream</th><th>Priority</th><th>Team</th><th>Status</th><th>Next Step</th><th>Where's the Ball</th><th>Owner</th></tr></thead>
                 <tbody>
                   {filtered.map(w=>{
-                    const isNick=(w.ball_in_court||'').toLowerCase().includes('nick');
-                    const dim=nickOnly&&!isNick;
+                    const isNickAction=w.ball_in && w.owner==='Nick';
+                    const dim=nickOnly&&!isNickAction;
                     return (
                       <tr key={w.id} className={dim?'dimmed':''} onClick={()=>!dim&&setSelected(w)}>
                         <td>
@@ -1077,8 +1127,8 @@ function WorkingPage({ working, onUpdate, onAdd, showToast }) {
                         <td className="td-muted">{w.team}</td>
                         <td><span className={`badge ${sClass(w.status)}`}>{w.status}</span></td>
                         <td className="td-muted td-trunc">{w.next_step||'—'}</td>
-                        <td className="td-muted" style={{fontWeight:isNick?700:'',color:isNick?var_accent:''}}>{w.ball_in_court||'—'}</td>
-                        <td className="td-muted" style={{fontSize:11,maxWidth:140,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{BUCKET_SHORT[w.bucket]||w.bucket}</td>
+                        <td><span className={`ball-badge ${w.ball_in!==false?'ball-badge-in':'ball-badge-out'}`}>{w.ball_in!==false?'← In':'Out →'}</span></td>
+                        <td>{w.owner?<span className={`owner-badge ${ownerClass(w.owner,settings.owners)}`}>{w.owner}</span>:<span className="td-muted">—</span>}</td>
                       </tr>
                     );
                   })}
@@ -1247,6 +1297,7 @@ function SettingsPage() {
           <SettingsList label="Statuses" items={settings.statuses} onChange={v=>updateList('statuses',v)}
             colorFn={s=>({Active:'b-active','On Hold':'b-hold',Blocked:'b-blocked',Complete:'b-complete'}[s]||'b-hold')}/>
           <SettingsList label="Teams" items={settings.teams} onChange={v=>updateList('teams',v)}/>
+          <SettingsList label="Owners" items={settings.owners||DEFAULT_SETTINGS.owners} onChange={v=>updateList('owners',v)} note="People who can own workstreams. Sets the Owner dropdown options."/>
           <SettingsList label="Complexity" items={settings.complexities} onChange={v=>updateList('complexities',v)}
             note="Complexity is pre-filled by AI on intake, but always editable."/>
         </div>
@@ -1263,8 +1314,14 @@ const DEFAULT_SETTINGS = {
   statuses:     ['Active','On Hold','Blocked','Complete'],
   teams:        ['All','Executive','Ops','Finance','Marketing','Supply Chain','Field Ops','Internal Dev'],
   complexities: ['Low','Medium','High'],
+  owners:       ['Nick','Jenny'],
   buckets:      ['Internal Review / Scoping','Work-in-Progress / Active Dev','Backlog [Reviewed, On Hold]','End-User / Acceptance Testing','Push to DEV/Prod'],
 };
+function ownerClass(name, owners) {
+  if (!name) return 'owner-x';
+  const idx = (owners||DEFAULT_SETTINGS.owners).indexOf(name);
+  return idx >= 0 ? 'owner-'+idx : 'owner-x';
+}
 // Kept for migration: if SharePoint is empty on first run, we pull localStorage data
 function loadStorage(){ try{ return JSON.parse(localStorage.getItem('mtg-grid')||'{}'); }catch{ return {}; } }
 
@@ -1369,7 +1426,7 @@ function App() {
   function onAcceptIntake(item,priority,notes){
     setIntake(ii=>ii.map(i=>i.id===item.id?{...i,status:'Accepted'}:i));
     const noteArr=notes?.trim()?[{text:notes.trim(),ts:fmtTs()}]:[];
-    setWorking(ws=>[...ws,{id:'w_'+item.id,name:item.name,team:item.team,priority,status:'Active',next_step:'',ball_in_court:item.requestor||'',bucket:'Internal Review / Scoping',complexity:item.complexity||'TBD',requestor:item.requestor,source:item.source,notes:noteArr,flags:item.flags||[],blockedBy:[],rationale:item.rationale,date_accepted:new Date().toISOString().slice(0,10)}]);
+    setWorking(ws=>[...ws,{id:'w_'+item.id,name:item.name,team:item.team,priority,status:'Active',next_step:'',ball_in_court:'',ball_in:true,owner:'Nick',bucket:'Internal Review / Scoping',complexity:item.complexity||'TBD',requestor:item.requestor,source:item.source,notes:noteArr,flags:item.flags||[],blockedBy:[],rationale:item.rationale,date_accepted:new Date().toISOString().slice(0,10)}]);
   }
   function onRejectIntake(item){ setIntake(ii=>ii.map(i=>i.id===item.id?{...i,status:'Rejected'}:i)); }
   function onAddIntake(item){ setIntake(ii=>[item,...ii]); }
@@ -1445,7 +1502,7 @@ function App() {
               {saveStatus==='saving'     && <span style={{fontSize:11,color:'var(--muted)',marginLeft:8}}>Saving…</span>}
               {saveStatus==='saved'      && <span style={{fontSize:11,color:'var(--s-complete)',marginLeft:8}}>✓ Saved</span>}
               {saveStatus==='error'      && <span style={{fontSize:11,color:'var(--high)',marginLeft:8}}>⚠ Save failed — check console</span>}
-              {saveStatus==='ls_blocked' && <span style={{fontSize:11,color:'var(--high)',marginLeft:8}}>⚠ localStorage blocked — changes won't persist. Open in Chrome or Edge.</span>}
+              {saveStatus==='ls_blocked' && <span style={{fontSize:11,color:'var(--high)',marginLeft:8}}>⚠ localStorage blocked — changes won’t persist. Open in Chrome or Edge.</span>}
             </div>
           </div>
           <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}}>
@@ -1461,7 +1518,195 @@ function App() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+// ── PUBLIC INTAKE FORM (?form mode) ─────────────────────────────────────────────────────
+function FormApp() {
+  const { useState: uS, useEffect: uE } = React;
+  const [ready,      setReady]      = uS(false);
+  const [account,    setAccount]    = uS(null);
+  const [submitted,  setSubmitted]  = uS(false);
+  const [submitting, setSubmitting] = uS(false);
+  const [err,        setErr]        = uS('');
+  const [teams,      setTeams]      = uS(DEFAULT_SETTINGS.teams.filter(t=>t!=='All'));
+  const FREQ = ['','One-time','Daily','Weekly','Monthly','Quarterly','As needed'];
+  const PRIORITY_OPTS = [
+    { val:'High',    label:'🔴  Critical — needed ASAP or blocking work' },
+    { val:'Medium',  label:'🟡  High — needed soon, within 2–4 weeks' },
+    { val:'Low',     label:'🟢  Medium — needed within a month or two' },
+    { val:'Not Yet', label:'⚪  Low / Nice to have — no hard deadline' },
+  ];
+  const empty = { name:'', requestor:'', team:'', description:'', justification:'', success:'', priority:'Medium', deadline:'', frequency:'', data_sources:'', stakeholders:'' };
+  const [f, setF] = uS(empty);
+  const set = (k,v) => setF(x=>({...x,[k]:v}));
+  const required = f.name.trim() && f.requestor.trim() && f.team.trim() && f.description.trim() && f.justification.trim();
+
+  uE(()=>{
+    (async()=>{
+      try {
+        const hasCode = new URLSearchParams(window.location.search).has('code');
+        if (hasCode) {
+          const ok = await handleAuthCallback();
+          if (ok) { setAccount(_userInfo); }
+        } else if (_loadStoredToken()) {
+          setAccount(_userInfo);
+        }
+        if (_accessToken) {
+          const sp = await spLoad();
+          if (sp.settings?.teams) setTeams(sp.settings.teams.filter(t=>t!=='All'));
+        }
+      } catch(e) { console.error('Form init:', e); }
+      finally { setReady(true); }
+    })();
+  },[]);
+
+  async function signInForm() {
+    try { await doSignIn(); } catch(e) { setErr('Sign-in failed: '+(e.message||'Please try again.')); }
+  }
+
+  async function submitForm() {
+    if (!required) return;
+    setSubmitting(true); setErr('');
+    try {
+      const sp = await spLoad();
+      const raw = ['What: '+f.description,'Why: '+f.justification,
+        f.success?'Success: '+f.success:'',f.frequency?'Frequency: '+f.frequency:'',
+        f.data_sources?'Data sources: '+f.data_sources:'',
+        f.stakeholders?'Stakeholders: '+f.stakeholders:'',
+        f.deadline?'Deadline: '+f.deadline:''].filter(Boolean).join(' | ');
+      const newItem = { id:'i_'+Date.now(), name:f.name.trim(), requestor:f.requestor.trim(),
+        team:f.team, description:f.description.trim(), justification:f.justification.trim(),
+        success:f.success.trim(), priority:f.priority, deadline:f.deadline,
+        frequency:f.frequency, data_sources:f.data_sources.trim(),
+        stakeholders:f.stakeholders.trim(), raw, source:'Portal',
+        complexity:'TBD', rationale:'', flags:[],
+        date_received:new Date().toISOString().slice(0,10), status:'Pending' };
+      const updatedIntake = [newItem, ...(sp.intake||[])];
+      await spSave(sp._itemId||null, { working:sp.working||[], intake:updatedIntake, settings:sp.settings||DEFAULT_SETTINGS });
+      try { sessionStorage.removeItem('grid_form_mode'); } catch {}
+      setSubmitted(true);
+    } catch(e) { setErr('Submission failed: '+(e.message||'Please try again.')); }
+    finally { setSubmitting(false); }
+  }
+
+  const labelStyle = {fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'.5px',color:'var(--muted)',marginBottom:4,display:'block'};
+  const reqStar = <span style={{color:'var(--high)',marginLeft:2}}>*</span>;
+  const hint = t => <div style={{fontSize:11,color:'var(--muted)',marginTop:3}}>{t}</div>;
+  const wrap = {maxWidth:640,margin:'0 auto',padding:'32px 20px'};
+  const secHead = {fontSize:11,fontWeight:800,color:'var(--accent)',textTransform:'uppercase',letterSpacing:'.8px',margin:'24px 0 12px'};
+
+  if (!ready) return (
+    <div style={{display:'flex',height:'100vh',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:12,background:'var(--bg)'}}>
+      <GRIDMark size={48}/><div style={{fontSize:13,color:'var(--muted)'}}>Loading…</div>
+    </div>
+  );
+
+  if (!account) return (
+    <div style={{background:'var(--bg)',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <div style={{background:'#fff',borderRadius:12,boxShadow:'0 4px 24px rgba(0,0,0,.10)',padding:'40px 48px',maxWidth:420,width:'100%',textAlign:'center'}}>
+        <GRIDMark size={52} style={{margin:'0 auto 16px'}}/>
+        <div style={{fontSize:22,fontWeight:900,color:'var(--sidebar)',letterSpacing:'1px',fontFamily:"'Arial Black',Impact,sans-serif",marginBottom:4}}>GRID</div>
+        <div style={{fontSize:13,color:'var(--muted)',marginBottom:28}}>Submit a Data Request to The Master Trades Group analytics team.</div>
+        {err && <div style={{fontSize:12,color:'var(--high)',marginBottom:12}}>{err}</div>}
+        <button className="btn btn-primary" style={{width:'100%',justifyContent:'center',padding:'11px 20px',fontSize:14}} onClick={signInForm}>
+          Sign in with Microsoft to continue →
+        </button>
+        <div style={{fontSize:11,color:'var(--muted)',marginTop:16}}>Sign in with your MTG Microsoft account to submit your request.</div>
+      </div>
+    </div>
+  );
+
+  if (submitted) return (
+    <div style={{background:'var(--bg)',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <div style={{background:'#fff',borderRadius:12,boxShadow:'0 4px 24px rgba(0,0,0,.10)',padding:'48px',maxWidth:480,width:'100%',textAlign:'center'}}>
+        <div style={{fontSize:40,marginBottom:16}}>✅</div>
+        <div style={{fontSize:22,fontWeight:800,color:'var(--sidebar)',marginBottom:8}}>Request Submitted!</div>
+        <div style={{fontSize:14,color:'var(--muted)',marginBottom:28}}>Thanks, <strong>{account.name}</strong>. Your request has been added to the intake queue. The analytics team will review it shortly.</div>
+        <button className="btn btn-primary" style={{justifyContent:'center'}} onClick={()=>{setF(empty);setSubmitted(false);}}>Submit Another Request</button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{background:'var(--bg)',minHeight:'100vh'}}>
+      <div style={{background:'linear-gradient(135deg,#0d1e2d 0%,#1a3045 100%)',padding:'16px 20px',display:'flex',alignItems:'center',gap:12}}>
+        <GRIDMark size={32}/>
+        <div>
+          <div style={{fontSize:14,fontWeight:800,color:'#fff',letterSpacing:'.3px'}}>Data Request Portal</div>
+          <div style={{fontSize:11,color:'#8ba3b8'}}>The Master Trades Group · Analytics Team</div>
+        </div>
+        <div style={{marginLeft:'auto',fontSize:11,color:'#4a6070'}}>Signed in as {account.name}</div>
+      </div>
+      <div style={wrap}>
+        <div style={{fontSize:20,fontWeight:800,color:'var(--sidebar)',marginBottom:4}}>Submit a Data Request</div>
+        <div style={{fontSize:13,color:'var(--muted)',marginBottom:24}}>Fill out the form below and the analytics team will review your request shortly.</div>
+
+        <div style={secHead}>About Your Request</div>
+        <div className="field" style={{marginBottom:14}}>
+          <label style={labelStyle}>Request Title {reqStar}</label>
+          <input autoFocus value={f.name} onChange={e=>set('name',e.target.value)} placeholder="e.g. Q2 Sales Dashboard by Region" style={{width:'100%'}}/>
+          {hint('Give your request a short, descriptive name')}
+        </div>
+        <div className="field-grid" style={{marginBottom:14}}>
+          <div className="field"><label style={labelStyle}>Your Name {reqStar}</label><input value={f.requestor} onChange={e=>set('requestor',e.target.value)} placeholder="First and last name"/></div>
+          <div className="field"><label style={labelStyle}>Your Team {reqStar}</label>
+            <select value={f.team} onChange={e=>set('team',e.target.value)}>
+              <option value="">Select a team…</option>
+              {teams.map(t=><option key={t}>{t}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div style={secHead}>What You Need</div>
+        <div className="field" style={{marginBottom:14}}>
+          <label style={labelStyle}>What are you looking for? {reqStar}</label>
+          <textarea value={f.description} onChange={e=>set('description',e.target.value)} placeholder="Describe the report, dashboard, or data you need. Be as specific as possible — include filters, time ranges, breakdowns, etc." style={{minHeight:90,resize:'vertical',width:'100%'}}/>
+        </div>
+        <div className="field" style={{marginBottom:14}}>
+          <label style={labelStyle}>Why do you need it? {reqStar}</label>
+          <textarea value={f.justification} onChange={e=>set('justification',e.target.value)} placeholder="What business decision or problem does this support?" style={{minHeight:70,resize:'vertical',width:'100%'}}/>
+        </div>
+        <div className="field" style={{marginBottom:14}}>
+          <label style={labelStyle}>What does success look like? <span style={{fontWeight:400,textTransform:'none',letterSpacing:0}}>(optional)</span></label>
+          <textarea value={f.success} onChange={e=>set('success',e.target.value)} placeholder="How will you know this is complete?" style={{minHeight:60,resize:'vertical',width:'100%'}}/>
+        </div>
+
+        <div style={secHead}>Logistics</div>
+        <div className="field" style={{marginBottom:14}}>
+          <label style={labelStyle}>Priority {reqStar}</label>
+          {PRIORITY_OPTS.map(o=>(
+            <label key={o.val} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 10px',marginBottom:4,borderRadius:6,border:`1px solid ${f.priority===o.val?'var(--accent)':'var(--border)'}`,background:f.priority===o.val?'var(--accent-light)':'transparent',cursor:'pointer',fontSize:13}}>
+              <input type="radio" name="priority" value={o.val} checked={f.priority===o.val} onChange={()=>set('priority',o.val)} style={{accentColor:'var(--accent)'}}/>
+              {o.label}
+            </label>
+          ))}
+        </div>
+        <div className="field-grid" style={{marginBottom:14}}>
+          <div className="field"><label style={labelStyle}>Target deadline <span style={{fontWeight:400,textTransform:'none',letterSpacing:0}}>(optional)</span></label><input type="date" value={f.deadline} onChange={e=>set('deadline',e.target.value)}/></div>
+          <div className="field"><label style={labelStyle}>How often will you use this?</label>
+            <select value={f.frequency} onChange={e=>set('frequency',e.target.value)}>{FREQ.map(o=><option key={o} value={o}>{o||'Select one…'}</option>)}</select>
+          </div>
+        </div>
+
+        <div style={secHead}>Context <span style={{fontWeight:400,color:'var(--muted)',textTransform:'none',letterSpacing:0,fontSize:11}}>(optional — helps us scope faster)</span></div>
+        <div className="field" style={{marginBottom:14}}>
+          <label style={labelStyle}>Data sources / systems involved</label>
+          <input value={f.data_sources} onChange={e=>set('data_sources',e.target.value)} placeholder="e.g. Netsuite, Workday, ServiceTitan, Excel exports…" style={{width:'100%'}}/>
+        </div>
+        <div className="field" style={{marginBottom:28}}>
+          <label style={labelStyle}>Other stakeholders to notify</label>
+          <input value={f.stakeholders} onChange={e=>set('stakeholders',e.target.value)} placeholder="Names of anyone else who should be kept in the loop" style={{width:'100%'}}/>
+        </div>
+
+        {err && <div style={{fontSize:12,color:'var(--high)',marginBottom:12,padding:'10px 14px',background:'var(--high-bg)',borderRadius:6,border:'1px solid var(--high-border)'}}>{err}</div>}
+        {!required && <div style={{fontSize:11,color:'var(--muted)',marginBottom:8}}>Fields marked <span style={{color:'var(--high)'}}>*</span> are required.</div>}
+        <button className="btn btn-primary" style={{width:'100%',justifyContent:'center',padding:'12px 20px',fontSize:14,opacity:required?1:.5}} onClick={submitForm} disabled={!required||submitting}>
+          {submitting ? 'Submitting…' : 'Submit Request →'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(IS_FORM ? <FormApp/> : <App/>);
 </script>
 </body>
 </html>
