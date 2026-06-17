@@ -463,7 +463,7 @@ function WorkingDrawer({ item: init, onClose, onUpdate, showToast, allItems, onL
   const [depSuggestions, setDepSuggestions] = useState([]);
 
   function set(k, v) {
-    const TRACKED = ['status', 'priority', 'ball_in', 'owner'];
+    const TRACKED = ['status', 'priority', 'ball_in', 'owner', 'next_step'];
     if (onLogChange && TRACKED.includes(k) && item[k] !== v) {
       onLogChange({ type: k, wname: item.name, wid: item.id, from: item[k], to: v });
     }
@@ -1336,10 +1336,11 @@ function UpdatesPage({ changelog }) {
   const [filter, setFilter] = useState('all');
 
   const TYPE_META = {
-    status:           { label:'Status Changed',    color:'#6366f1' },
+    status:           { label:'Status Changed',     color:'#6366f1' },
     priority:         { label:'Priority Changed',  color:'#f59e0b' },
-    ball_in:          { label:'Ball Toggled',       color:'#10b981' },
+    ball_in:          { label:'Ball Toggled',      color:'#10b981' },
     owner:            { label:'Owner Changed',     color:'#8b5cf6' },
+    next_step:        { label:'Next Step Updated', color:'#0ea5e9' },
     note:             { label:'Note Posted',       color:'#3b82f6' },
     new_workstream:   { label:'New Workstream',    color:'#9db800' },
     intake_accepted:  { label:'Request Accepted',  color:'#22c55e' },
@@ -1351,6 +1352,7 @@ function UpdatesPage({ changelog }) {
     { key:'status,priority',             label:'Status / Priority' },
     { key:'ball_in',                     label:'Ball' },
     { key:'owner',                       label:'Owner' },
+    { key:'next_step',                   label:'Next Step' },
     { key:'note',                        label:'Notes' },
     { key:'intake_accepted,intake_rejected', label:'Intake' },
     { key:'new_workstream',              label:'New' },
@@ -1389,6 +1391,7 @@ function UpdatesPage({ changelog }) {
       case 'priority':        return `${dn(e.from)} → ${dn(e.to)}`;
       case 'ball_in':         return `${dn(e.from)} → ${dn(e.to)}`;
       case 'owner':           return `${dn(e.from)||'Unassigned'} → ${dn(e.to)||'Unassigned'}`;
+      case 'next_step':       return e.to ? `"${String(e.to).slice(0,140)}"` : '(cleared)';
       case 'note':            return `"${(e.text||'').slice(0,140)}"`;
       case 'new_workstream':  return 'Added to Working';
       case 'intake_accepted': return 'Accepted → moved to Working';
