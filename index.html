@@ -445,6 +445,7 @@ const Ico = {
   Teams:   ()=><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>,
   Table:   ()=><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M3 10h18M3 14h18M10 4v16M4 4h16a1 1 0 011 1v14a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1z"/></svg>,
   Kanban:  ()=><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="11" rx="1"/><rect x="17" y="3" width="5" height="14" rx="1"/></svg>,
+  Updates: ()=><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="9"/><path strokeLinecap="round" d="M12 7v5l3 3"/></svg>,
 };
 
 // ── TOAST ────────────────────────────────────────────────────────────────────
@@ -454,7 +455,7 @@ function Toast({ msg, onDone }) {
 }
 
 // ── WORKING DRAWER ───────────────────────────────────────────────────────────
-function WorkingDrawer({ item: init, onClose, onUpdate, showToast, allItems }) {
+function WorkingDrawer({ item: init, onClose, onUpdate, showToast, allItems, onLogChange }) {
   const { settings } = useS();
   const [item, setItem] = useState(init);
   const [noteText, setNoteText] = useState('');
@@ -462,6 +463,10 @@ function WorkingDrawer({ item: init, onClose, onUpdate, showToast, allItems }) {
   const [depSuggestions, setDepSuggestions] = useState([]);
 
   function set(k, v) {
+    const TRACKED = ['status', 'priority', 'ball_in', 'owner'];
+    if (onLogChange && TRACKED.includes(k) && item[k] !== v) {
+      onLogChange({ type: k, wname: item.name, wid: item.id, from: item[k], to: v });
+    }
     const updated = {...item, [k]: v};
     setItem(updated);
     onUpdate(updated);
@@ -470,6 +475,7 @@ function WorkingDrawer({ item: init, onClose, onUpdate, showToast, allItems }) {
   function postNote() {
     if (!noteText.trim()) return;
     const entry = { text: noteText.trim(), ts: fmtTs() };
+    if (onLogChange) onLogChange({ type: 'note', wname: item.name, wid: item.id, text: noteText.trim() });
     set('notes', [...(item.notes||[]), entry]);
     setNoteText('');
     showToast('Note posted');
@@ -1066,7 +1072,7 @@ function NewWorkingModal({ onClose, onAdd, showToast }) {
 }
 
 // ── WORKING PAGE ──────────────────────────────────────────────────────────────
-function WorkingPage({ working, onUpdate, onAdd, showToast }) {
+function WorkingPage({ working, onUpdate, onAdd, showToast, onLogChange }) {
   const { settings } = useS();
   const [selected, setSelected] = useState(null);
   const [showNew, setShowNew]   = useState(false);
@@ -1140,7 +1146,7 @@ function WorkingPage({ working, onUpdate, onAdd, showToast }) {
       ) : (
         <KanbanBoard items={filtered} onSelect={handleSelect} nickActionOn={nickOnly}/>
       )}
-      {selected&&<WorkingDrawer item={selected} onClose={()=>setSelected(null)} onUpdate={handleUpdate} showToast={showToast} allItems={working}/>}
+      {selected&&<WorkingDrawer item={selected} onClose={()=>setSelected(null)} onUpdate={handleUpdate} showToast={showToast} allItems={working} onLogChange={onLogChange}/>}
       {showNew&&<NewWorkingModal onClose={()=>setShowNew(false)} onAdd={onAdd} showToast={showToast}/>}
     </div>
   );
@@ -1325,6 +1331,142 @@ function ownerClass(name, owners) {
 // Kept for migration: if SharePoint is empty on first run, we pull localStorage data
 function loadStorage(){ try{ return JSON.parse(localStorage.getItem('mtg-grid')||'{}'); }catch{ return {}; } }
 
+// ── UPDATES PAGE ─────────────────────────────────────────────────────────────
+function UpdatesPage({ changelog }) {
+  const [filter, setFilter] = useState('all');
+
+  const TYPE_META = {
+    status:           { label:'Status Changed',    color:'#6366f1' },
+    priority:         { label:'Priority Changed',  color:'#f59e0b' },
+    ball_in:          { label:'Ball Toggled',       color:'#10b981' },
+    owner:            { label:'Owner Changed',     color:'#8b5cf6' },
+    note:             { label:'Note Posted',       color:'#3b82f6' },
+    new_workstream:   { label:'New Workstream',    color:'#9db800' },
+    intake_accepted:  { label:'Request Accepted',  color:'#22c55e' },
+    intake_rejected:  { label:'Request Rejected',  color:'#ef4444' },
+  };
+
+  const FILTERS = [
+    { key:'all',                         label:'All' },
+    { key:'status,priority',             label:'Status / Priority' },
+    { key:'ball_in',                     label:'Ball' },
+    { key:'owner',                       label:'Owner' },
+    { key:'note',                        label:'Notes' },
+    { key:'intake_accepted,intake_rejected', label:'Intake' },
+    { key:'new_workstream',              label:'New' },
+  ];
+
+  const keys = filter === 'all' ? null : filter.split(',');
+  const filtered = keys ? (changelog||[]).filter(e=>keys.includes(e.type)) : (changelog||[]);
+
+  // Group by calendar date (YYYY-MM-DD)
+  const groups = {};
+  filtered.forEach(e => {
+    const d = e.ts ? e.ts.slice(0,10) : 'unknown';
+    (groups[d] = groups[d]||[]).push(e);
+  });
+  const dates = Object.keys(groups).sort().reverse();
+
+  function fmtDate(d) {
+    const today     = new Date().toISOString().slice(0,10);
+    const yesterday = new Date(Date.now()-86400000).toISOString().slice(0,10);
+    if (d === today)     return 'Today';
+    if (d === yesterday) return 'Yesterday';
+    try { return new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}); }
+    catch { return d; }
+  }
+
+  function fmtTime(ts) {
+    if (!ts) return '';
+    try { return new Date(ts).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true}); }
+    catch { return ''; }
+  }
+
+  function entryDesc(e) {
+    const dn = v => v===true?'In':v===false?'Out':String(v??'—');
+    switch(e.type) {
+      case 'status':          return `${dn(e.from)} → ${dn(e.to)}`;
+      case 'priority':        return `${dn(e.from)} → ${dn(e.to)}`;
+      case 'ball_in':         return `${dn(e.from)} → ${dn(e.to)}`;
+      case 'owner':           return `${dn(e.from)||'Unassigned'} → ${dn(e.to)||'Unassigned'}`;
+      case 'note':            return `"${(e.text||'').slice(0,140)}"`;
+      case 'new_workstream':  return 'Added to Working';
+      case 'intake_accepted': return 'Accepted → moved to Working';
+      case 'intake_rejected': return 'Rejected';
+      default:                return e.type||'';
+    }
+  }
+
+  return (
+    <div className="page">
+      {/* Filter pills */}
+      <div style={{display:'flex',gap:6,marginBottom:20,flexWrap:'wrap'}}>
+        {FILTERS.map(o=>(
+          <button key={o.key} onClick={()=>setFilter(o.key)}
+            style={{padding:'5px 13px',borderRadius:20,border:'1px solid var(--border)',cursor:'pointer',fontSize:12,fontWeight:600,
+              background:filter===o.key?'var(--primary)':'var(--surface)',
+              color:filter===o.key?'#fff':'var(--text)',transition:'all .12s'}}>
+            {o.label}
+          </button>
+        ))}
+        {(changelog||[]).length>0 &&
+          <span style={{marginLeft:'auto',fontSize:11,color:'var(--muted)',alignSelf:'center'}}>{filtered.length} entr{filtered.length===1?'y':'ies'}</span>}
+      </div>
+
+      {/* Empty state */}
+      {dates.length===0 && (
+        <div className="empty">
+          <Ico.Updates/>
+          <p>{(changelog||[]).length===0
+            ? 'No updates yet — changes to workstreams will appear here.'
+            : 'No entries match this filter.'}</p>
+        </div>
+      )}
+
+      {/* Timeline */}
+      {dates.map(d=>(
+        <div key={d} style={{marginBottom:28}}>
+          <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',
+            letterSpacing:'.6px',marginBottom:10,paddingBottom:6,borderBottom:'1px solid var(--border)'}}>
+            {fmtDate(d)}
+          </div>
+          {groups[d].map(e=>{
+            const meta = TYPE_META[e.type] || { label:e.type, color:'#94a3b8' };
+            return (
+              <div key={e.id} style={{display:'flex',gap:12,alignItems:'flex-start',
+                padding:'10px 4px',borderBottom:'1px solid var(--border)'}}>
+                {/* Dot */}
+                <div style={{width:8,height:8,borderRadius:'50%',background:meta.color,
+                  flexShrink:0,marginTop:6}}/>
+                {/* Content */}
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginBottom:2}}>
+                    <span style={{fontSize:10,fontWeight:700,color:meta.color,
+                      textTransform:'uppercase',letterSpacing:'.4px',flexShrink:0}}>
+                      {meta.label}
+                    </span>
+                    <span style={{fontSize:12,fontWeight:600,color:'var(--text)',
+                      overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                      {e.wname||'—'}
+                    </span>
+                  </div>
+                  <div style={{fontSize:12,color:'var(--muted)',lineHeight:1.5}}>
+                    {entryDesc(e)}
+                  </div>
+                </div>
+                {/* Time */}
+                <div style={{fontSize:10,color:'var(--muted)',flexShrink:0,marginTop:4,whiteSpace:'nowrap'}}>
+                  {fmtTime(e.ts)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function App() {
   const [ready,    setReady]    = useState(false);   // true after MSAL init
   const [account,  setAccount]  = useState(null);    // signed-in MSAL account
@@ -1333,10 +1475,11 @@ function App() {
   const saveTimer  = useRef(null);
 
   const [page,     setPage]     = useState('working');
-  const [working,  setWorking]  = useState(WORKING_SEED);
-  const [intake,   setIntake]   = useState(INTAKE_SEED);
-  const [toast,    setToast]    = useState(null);
-  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [working,   setWorking]   = useState(WORKING_SEED);
+  const [intake,    setIntake]    = useState(INTAKE_SEED);
+  const [changelog, setChangelog] = useState([]);
+  const [toast,     setToast]     = useState(null);
+  const [settings,  setSettings]  = useState(DEFAULT_SETTINGS);
   const [saveStatus, setSaveStatus] = useState('');
 
   // Load SharePoint data and apply to state; falls back to localStorage for migration
@@ -1344,9 +1487,10 @@ function App() {
     const sp = await spLoad();
     const ls = loadStorage();
     const hasSpData = sp._itemId !== undefined && sp._itemId !== null;
-    setWorking( (hasSpData ? sp.working   : ls.working)  || WORKING_SEED);
-    setIntake(  (hasSpData ? sp.intake    : ls.intake)   || INTAKE_SEED);
-    setSettings((hasSpData ? sp.settings  : ls.settings) || DEFAULT_SETTINGS);
+    setWorking(   (hasSpData ? sp.working   : ls.working)   || WORKING_SEED);
+    setIntake(    (hasSpData ? sp.intake    : ls.intake)    || INTAKE_SEED);
+    setSettings(  (hasSpData ? sp.settings  : ls.settings)  || DEFAULT_SETTINGS);
+    setChangelog( (hasSpData ? sp.changelog : ls.changelog) || []);
     spItemId.current = hasSpData ? sp._itemId : null;
     // Allow auto-save after React commits the state updates above
     setTimeout(() => { synced.current = true; }, 150);
@@ -1358,9 +1502,10 @@ function App() {
       try {
         if (IS_FILE) {
           const ls = loadStorage();
-          if (ls.working)  setWorking(ls.working);
-          if (ls.intake)   setIntake(ls.intake);
-          if (ls.settings) setSettings(ls.settings);
+          if (ls.working)   setWorking(ls.working);
+          if (ls.intake)    setIntake(ls.intake);
+          if (ls.settings)  setSettings(ls.settings);
+          if (ls.changelog) setChangelog(ls.changelog);
           setAccount({ name: 'Local', username: 'local' });
           setTimeout(() => { synced.current = true; }, 150);
           return;
@@ -1389,7 +1534,7 @@ function App() {
     if (IS_FILE) {
       if (!_lsOk) { setSaveStatus('ls_blocked'); return; }
       try {
-        localStorage.setItem('mtg-grid', JSON.stringify({ working, intake, settings }));
+        localStorage.setItem('mtg-grid', JSON.stringify({ working, intake, settings, changelog }));
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus(''), 2000);
       } catch(e) {
@@ -1402,7 +1547,7 @@ function App() {
     setSaveStatus('saving');
     saveTimer.current = setTimeout(async () => {
       try {
-        const newId = await spSave(spItemId.current, { working, intake, settings });
+        const newId = await spSave(spItemId.current, { working, intake, settings, changelog });
         if (newId && !spItemId.current) spItemId.current = newId;
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus(''), 2000);
@@ -1412,7 +1557,7 @@ function App() {
       }
     }, 2000);
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
-  }, [working, intake, settings]);
+  }, [working, intake, settings, changelog]);
 
   async function signIn() {
     try { await doSignIn(); } // redirects entire page — nothing runs after this
@@ -1421,14 +1566,22 @@ function App() {
 
   function updateList(key,val){ setSettings(s=>({...s,[key]:val})); }
   function showToast(msg){ setToast(msg); setTimeout(()=>setToast(null),2400); }
+  function pushChange(entry) {
+    setChangelog(cl => [{
+      id: 'cl_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+      ts: new Date().toISOString(),
+      ...entry
+    }, ...cl]);
+  }
   function onUpdateWorking(updated){ setWorking(ws=>ws.map(w=>w.id===updated.id?updated:w)); }
-  function onAddWorking(item){ setWorking(ws=>[...ws,item]); }
+  function onAddWorking(item){ setWorking(ws=>[...ws,item]); pushChange({ type:'new_workstream', wname:item.name, wid:item.id }); }
   function onAcceptIntake(item,priority,notes){
     setIntake(ii=>ii.map(i=>i.id===item.id?{...i,status:'Accepted'}:i));
+    pushChange({ type:'intake_accepted', wname:item.name, wid:'w_'+item.id });
     const noteArr=notes?.trim()?[{text:notes.trim(),ts:fmtTs()}]:[];
     setWorking(ws=>[...ws,{id:'w_'+item.id,name:item.name,team:item.team,priority,status:'Active',next_step:'',ball_in_court:'',ball_in:true,owner:'Nick',bucket:'Internal Review / Scoping',complexity:item.complexity||'TBD',requestor:item.requestor,source:item.source,notes:noteArr,flags:item.flags||[],blockedBy:[],rationale:item.rationale,date_accepted:new Date().toISOString().slice(0,10)}]);
   }
-  function onRejectIntake(item){ setIntake(ii=>ii.map(i=>i.id===item.id?{...i,status:'Rejected'}:i)); }
+  function onRejectIntake(item){ setIntake(ii=>ii.map(i=>i.id===item.id?{...i,status:'Rejected'}:i)); pushChange({ type:'intake_rejected', wname:item.name, wid:item.id }); }
   function onAddIntake(item){ setIntake(ii=>[item,...ii]); }
   const pendingCount = intake.filter(i=>i.status==='Pending').length;
 
@@ -1481,6 +1634,7 @@ function App() {
             </div>
             <div className={`nav-item${page==='working'?' active':''}`} onClick={()=>setPage('working')}><Ico.Working/> Working</div>
             <div className={`nav-item${page==='dashboard'?' active':''}`} onClick={()=>setPage('dashboard')}><Ico.Dash/> Dashboard</div>
+            <div className={`nav-item${page==='updates'?' active':''}`} onClick={()=>setPage('updates')}><Ico.Updates/> Updates</div>
           </nav>
           <div style={{padding:'0 8px 10px'}}>
             <div className={`nav-item${page==='settings'?' active':''}`} onClick={()=>setPage('settings')} style={{marginBottom:0}}>
@@ -1495,7 +1649,7 @@ function App() {
         </aside>
         <div className="main">
           <div className="topbar">
-            <div className="topbar-title">{page==='intake'?'Intake':page==='working'?'Working':page==='dashboard'?'Dashboard':'Settings'}</div>
+            <div className="topbar-title">{page==='intake'?'Intake':page==='working'?'Working':page==='dashboard'?'Dashboard':page==='updates'?'Updates':'Settings'}</div>
             <div className="topbar-actions">
               <span className="dot-live"/>
               {IS_FILE ? 'Local' : 'Shared · SharePoint'}
@@ -1507,8 +1661,9 @@ function App() {
           </div>
           <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}}>
             {page==='intake'    &&<IntakePage  intake={intake}   onAccept={onAcceptIntake} onReject={onRejectIntake} onAdd={onAddIntake}   showToast={showToast}/>}
-            {page==='working'   &&<WorkingPage working={working} onUpdate={onUpdateWorking} onAdd={onAddWorking}    showToast={showToast}/>}
+            {page==='working'   &&<WorkingPage working={working} onUpdate={onUpdateWorking} onAdd={onAddWorking}    showToast={showToast} onLogChange={pushChange}/>}
             {page==='dashboard' &&<DashboardPage working={working} intake={intake}/>}
+            {page==='updates'   &&<UpdatesPage changelog={changelog}/>}
             {page==='settings'  &&<SettingsPage/>}
           </div>
         </div>
