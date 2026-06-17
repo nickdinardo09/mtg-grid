@@ -1594,13 +1594,13 @@ function FormApp() {
   const secHead = {fontSize:11,fontWeight:800,color:'var(--accent)',textTransform:'uppercase',letterSpacing:'.8px',margin:'24px 0 12px'};
 
   if (!ready) return (
-    <div style={{display:'flex',height:'100vh',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:12,background:'var(--bg)'}}>
+    <div style={{width:'100%',display:'flex',height:'100vh',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:12,background:'var(--bg)'}}>
       <GRIDMark size={48}/><div style={{fontSize:13,color:'var(--muted)'}}>Loading…</div>
     </div>
   );
 
   if (!account) return (
-    <div style={{background:'var(--bg)',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center'}}>
+    <div style={{width:'100%',background:'var(--bg)',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center'}}>
       <div style={{background:'#fff',borderRadius:12,boxShadow:'0 4px 24px rgba(0,0,0,.10)',padding:'40px 48px',maxWidth:420,width:'100%',textAlign:'center'}}>
         <GRIDMark size={52} style={{margin:'0 auto 16px'}}/>
         <div style={{fontSize:22,fontWeight:900,color:'var(--sidebar)',letterSpacing:'1px',fontFamily:"'Arial Black',Impact,sans-serif",marginBottom:4}}>GRID</div>
@@ -1615,7 +1615,7 @@ function FormApp() {
   );
 
   if (submitted) return (
-    <div style={{background:'var(--bg)',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center'}}>
+    <div style={{width:'100%',background:'var(--bg)',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center'}}>
       <div style={{background:'#fff',borderRadius:12,boxShadow:'0 4px 24px rgba(0,0,0,.10)',padding:'48px',maxWidth:480,width:'100%',textAlign:'center'}}>
         <div style={{fontSize:40,marginBottom:16}}>✅</div>
         <div style={{fontSize:22,fontWeight:800,color:'var(--sidebar)',marginBottom:8}}>Request Submitted!</div>
@@ -1626,7 +1626,7 @@ function FormApp() {
   );
 
   return (
-    <div style={{background:'var(--bg)',minHeight:'100vh'}}>
+    <div style={{width:'100%',background:'var(--bg)',minHeight:'100vh'}}>
       <div style={{background:'linear-gradient(135deg,#0d1e2d 0%,#1a3045 100%)',padding:'16px 20px',display:'flex',alignItems:'center',gap:12}}>
         <GRIDMark size={32}/>
         <div>
