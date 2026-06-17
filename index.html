@@ -263,7 +263,7 @@ async function doSignIn() {
   const authUrl = 'https://login.microsoftonline.com/' + SP_CONFIG.tenantId + '/oauth2/v2.0/authorize' +
     '?client_id=' + SP_CONFIG.clientId + '&response_type=code' +
     '&redirect_uri=' + redir + '&scope=' + scope +
-    '&state=' + state + '&code_challenge=' + c + '&code_challenge_method=S256&prompt=consent';
+    '&state=' + state + '&code_challenge=' + c + '&code_challenge_method=S256';
   window.location.href = authUrl;
 }
 
@@ -1194,10 +1194,11 @@ function SettingsList({ label, items, onChange, colorFn, note }) {
 }
 
 function SettingsPage() {
-  const { settings, updateList } = useS();
+  const { settings, updateList, working, intake, spItemId } = useS();
   const [importErr, setImportErr] = useState('');
   function exportData() {
-    const data = JSON.parse(localStorage.getItem('mtg-grid')||'{}');
+    // Always export current React state so hosted mode exports real data, not empty localStorage
+    const data = { working, intake, settings };
     const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     a.download = 'grid-data-export.json'; a.click();
@@ -1404,7 +1405,7 @@ function App() {
 
   // ── MAIN APP ──────────────────────────────────────────────────────────────
   return (
-    <SettingsCtx.Provider value={{settings,updateList}}>
+    <SettingsCtx.Provider value={{settings,updateList,working,intake,spItemId}}>
       <div style={{display:'flex',width:'100%',minHeight:'100vh'}}>
         <aside className="sidebar">
           <div className="sidebar-logo">
